@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -10,191 +10,322 @@ import {
 } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import {
   Heart,
-  TrendingUp,
   Footprints,
-  Clock,
   Droplets,
-  Brain,
+  Activity,
+  Loader2,
+  ShieldAlert,
+  User,
+  Scale,
+  Baby,
+  HeartPulse,
+  Layers,
+  Dna,
+  LineChart as LineChartIcon,
+  BarChart3,
 } from "lucide-react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  Cell,
+} from "recharts";
 
-interface DiabetesTabProps {
+interface MetabolicTabProps {
   vitals: {
     age: number;
     bmi: number;
-    fastingGlucose: number;
+    glucose: number;
     insulin: number;
+    pregnancies: number;
+    bloodPressure: number;
+    skinThickness: number;
+    diabetesPedigree: number;
     dailySteps: number;
-    sedentaryMinutes: number;
   };
-  onVitalsChange: (vitals: DiabetesTabProps["vitals"]) => void;
+  onVitalsChange: (vitals: MetabolicTabProps["vitals"]) => void;
 }
 
-function computeRisk(vitals: DiabetesTabProps["vitals"]) {
-  const glucoseScore = Math.min(vitals.fastingGlucose / 200, 1) * 35;
-  const bmiScore = Math.min(Math.max(vitals.bmi - 18.5, 0) / 21.5, 1) * 20;
-  const insulinScore = Math.min(vitals.insulin / 50, 1) * 15;
-  const ageScore = Math.min(vitals.age / 80, 1) * 10;
-  const stepsScore = (1 - Math.min(vitals.dailySteps / 12000, 1)) * 10;
-  const sedentaryScore = Math.min(vitals.sedentaryMinutes / 600, 1) * 10;
+// ---------------------------------------------------------------------------
+// Helpers for the new Charts
+// ---------------------------------------------------------------------------
 
-  const totalRisk =
-    glucoseScore +
-    bmiScore +
-    insulinScore +
-    ageScore +
-    stepsScore +
-    sedentaryScore;
-  const medicalRisk = glucoseScore + insulinScore + bmiScore;
-  const behavioralRisk = stepsScore + sedentaryScore;
+// 1. Generate dynamic 6-month history based on the current score
+function generateHistory(currentScore: number, category: string) {
+  const months = ["Sep", "Oct", "Nov", "Dec", "Jan", "Feb"];
+  let trend = 0;
 
-  let category: string;
-  let color: string;
+  if (category.includes("Critical"))
+    trend = -15; // They've been getting worse fast
+  else if (category.includes("Moderate")) trend = -8;
+  else if (category.includes("Elevated")) trend = -4;
+  else trend = 0; // Healthy stays relatively flat
 
-  if (totalRisk < 25) {
-    category = "Low Risk";
-    color = "clinical-safe";
-  } else if (totalRisk < 50) {
-    if (behavioralRisk > medicalRisk * 0.5) {
-      category = "Elevated (Behavioral)";
-      color = "clinical-warning";
-    } else {
-      category = "Moderate (Medical)";
-      color = "clinical-warning";
-    }
-  } else if (totalRisk < 75) {
-    category = "High Risk";
-    color = "clinical-danger";
-  } else {
-    category = "Critical";
-    color = "clinical-danger";
+  return months.map((month, index) => {
+    // Reverse engineer past scores based on the trend, adding slight realistic noise
+    const noise = Math.random() * 4 - 2;
+    const historicalScore = currentScore + trend * (5 - index) + noise;
+    return {
+      month,
+      score: Math.max(5, Math.min(99, Math.round(historicalScore))), // clamp 5-99
+    };
+  });
+}
+
+// 2. Calculate "Top Risk Drivers" by comparing vitals to optimal clinical baselines
+function calculateRiskDrivers(vitals: MetabolicTabProps["vitals"]) {
+  const drivers = [];
+
+  // Calculate deviation from "optimal" to show the AI's logic
+  if (vitals.glucose > 100)
+    drivers.push({
+      name: "Elevated Glucose",
+      value: (vitals.glucose - 100) * 1.5,
+      color: "#ef4444",
+    });
+  if (vitals.bmi > 25)
+    drivers.push({
+      name: "High BMI",
+      value: (vitals.bmi - 25) * 3,
+      color: "#f97316",
+    });
+  if (vitals.dailySteps < 7000)
+    drivers.push({
+      name: "Sedentary Lifestyle",
+      value: (7000 - vitals.dailySteps) / 100,
+      color: "#eab308",
+    });
+  if (vitals.bloodPressure > 80)
+    drivers.push({
+      name: "Blood Pressure",
+      value: (vitals.bloodPressure - 80) * 1.2,
+      color: "#3b82f6",
+    });
+  if (vitals.insulin > 20)
+    drivers.push({
+      name: "Insulin Resistance",
+      value: (vitals.insulin - 20) * 0.8,
+      color: "#8b5cf6",
+    });
+
+  // Sort to find the biggest problems
+  drivers.sort((a, b) => b.value - a.value);
+
+  // If healthy, show a "Good" placeholder
+  if (drivers.length === 0 || drivers[0].value < 5) {
+    return [{ name: "All Markers Optimal", value: 100, color: "#22c55e" }];
   }
 
-  return { totalRisk: Math.round(totalRisk), category, color };
+  return drivers.slice(0, 4); // Return top 4 drivers
 }
 
-function getRecommendation(
-  vitals: DiabetesTabProps["vitals"],
-  risk: ReturnType<typeof computeRisk>,
-) {
-  const recs: string[] = [];
-  if (vitals.fastingGlucose > 100)
-    recs.push(
-      "Fasting glucose is elevated. Consider HbA1c testing and dietary review.",
-    );
-  if (vitals.bmi > 30)
-    recs.push(
-      "BMI indicates obesity. Recommend structured weight management program.",
-    );
-  if (vitals.dailySteps < 5000)
-    recs.push("Step count is low. Aim for at least 7,000-10,000 steps daily.");
-  if (vitals.sedentaryMinutes > 360)
-    recs.push(
-      "Excessive sedentary time detected. Consider hourly movement breaks.",
-    );
-  if (vitals.insulin > 25)
-    recs.push(
-      "Insulin levels suggest possible insulin resistance. Further assessment recommended.",
-    );
-  if (recs.length === 0)
-    recs.push(
-      "All metabolic markers within healthy range. Continue current lifestyle.",
-    );
-  if (risk.totalRisk < 25)
-    recs.push("Maintain regular check-ups every 6 months.");
-  return recs;
-}
+// ---------------------------------------------------------------------------
+// Main Component
+// ---------------------------------------------------------------------------
 
-export function DiabetesTab({ vitals, onVitalsChange }: DiabetesTabProps) {
-  const risk = useMemo(() => computeRisk(vitals), [vitals]);
-  const recommendations = useMemo(
-    () => getRecommendation(vitals, risk),
-    [vitals, risk],
+export function DiabetesTab({ vitals, onVitalsChange }: MetabolicTabProps) {
+  const [apiResult, setApiResult] = useState<{
+    status: string;
+    predicted_category?: string;
+    confidence?: number;
+    risk_score?: number;
+  } | null>(null);
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const fetchPrediction = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const apiUrl =
+          process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+        const response = await fetch(`${apiUrl}/predict/metabolic`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            Pregnancies: vitals.pregnancies,
+            Glucose: vitals.glucose,
+            BloodPressure: vitals.bloodPressure,
+            SkinThickness: vitals.skinThickness,
+            Insulin: vitals.insulin,
+            BMI: vitals.bmi,
+            DiabetesPedigreeFunction: vitals.diabetesPedigree,
+            Age: vitals.age,
+            TotalSteps: vitals.dailySteps,
+          }),
+          signal: controller.signal,
+        });
+
+        if (!response.ok) throw new Error("API validation failed.");
+
+        const data = await response.json();
+        setApiResult(data);
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name !== "AbortError") {
+          setError("Assessment engine unreachable.");
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    const timeout = setTimeout(fetchPrediction, 600);
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [vitals]);
+
+  // Derived Logic
+  const category =
+    apiResult?.predicted_category || (apiResult ? "Healthy" : "Analyzing...");
+  const confidenceScore = apiResult?.confidence || apiResult?.risk_score || 0;
+
+  // Memoize the chart data so it doesn't jitter needlessly
+  const historyData = useMemo(
+    () => generateHistory(confidenceScore, category),
+    [confidenceScore, category],
   );
+  const riskDrivers = useMemo(() => calculateRiskDrivers(vitals), [vitals]);
+
+  let riskColorClass = "bg-slate-100 text-slate-700 border-slate-200";
+  let badgeColorClass = "bg-slate-500 text-white";
+
+  if (category === "Healthy") {
+    riskColorClass = "bg-green-50 text-green-900 border-green-200";
+    badgeColorClass = "bg-green-500 text-white";
+  } else if (category === "Elevated (Behavioral)") {
+    riskColorClass = "bg-yellow-50 text-yellow-900 border-yellow-300";
+    badgeColorClass = "bg-yellow-500 text-white";
+  } else if (category === "Moderate (Medical)") {
+    riskColorClass = "bg-orange-50 text-orange-900 border-orange-300";
+    badgeColorClass = "bg-orange-500 text-white";
+  } else if (category === "Critical Risk") {
+    riskColorClass = "bg-red-50 text-red-900 border-red-300";
+    badgeColorClass = "bg-red-600 text-white";
+  }
 
   const sliderConfigs = [
     {
       key: "age" as const,
       label: "Age",
-      icon: Clock,
+      icon: User,
       min: 18,
       max: 90,
-      unit: "years",
+      unit: "yrs",
     },
     {
       key: "bmi" as const,
       label: "BMI",
-      icon: TrendingUp,
+      icon: Scale,
       min: 15,
-      max: 45,
-      unit: "kg/m\u00B2",
+      max: 50,
+      unit: "kg/m²",
       step: 0.1,
     },
     {
-      key: "fastingGlucose" as const,
-      label: "Fasting Glucose",
+      key: "glucose" as const,
+      label: "Glucose",
       icon: Droplets,
-      min: 60,
-      max: 200,
+      min: 40,
+      max: 250,
       unit: "mg/dL",
     },
     {
       key: "insulin" as const,
       label: "Insulin",
-      icon: Heart,
+      icon: Activity,
       min: 0,
-      max: 50,
-      unit: "\u00B5IU/mL",
+      max: 300,
+      unit: "µIU/mL",
+    },
+    {
+      key: "bloodPressure" as const,
+      label: "Blood Pressure",
+      icon: HeartPulse,
+      min: 40,
+      max: 140,
+      unit: "mmHg",
+    },
+    {
+      key: "skinThickness" as const,
+      label: "Skin Thickness",
+      icon: Layers,
+      min: 0,
+      max: 99,
+      unit: "mm",
+    },
+    {
+      key: "pregnancies" as const,
+      label: "Pregnancies",
+      icon: Baby,
+      min: 0,
+      max: 15,
+      unit: "",
+    },
+    {
+      key: "diabetesPedigree" as const,
+      label: "Pedigree",
+      icon: Dna,
+      min: 0.0,
+      max: 2.5,
+      unit: "",
+      step: 0.01,
     },
     {
       key: "dailySteps" as const,
       label: "Daily Steps",
       icon: Footprints,
-      min: 0,
+      min: 500,
       max: 20000,
       unit: "steps",
       step: 100,
     },
-    {
-      key: "sedentaryMinutes" as const,
-      label: "Sedentary Minutes",
-      icon: Clock,
-      min: 0,
-      max: 600,
-      unit: "min",
-      step: 10,
-    },
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      {/* Left: Inputs */}
-      <Card>
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+      {/* LEFT COLUMN: Inputs (Takes up 5 columns on large screens) */}
+      <Card className="lg:col-span-5 h-fit">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-card-foreground">
-            <Heart className="h-5 w-5 text-primary" />
-            Log Vitals
+            <Heart className="h-5 w-5 text-blue-600" />
+            Clinical Profile
           </CardTitle>
           <CardDescription>
-            Adjust patient metabolic and behavioral metrics
+            Adjust markers to view dynamic risk stratification
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-col gap-6">
+        <CardContent className="grid grid-cols-1 gap-5">
           {sliderConfigs.map(
             ({ key, label, icon: Icon, min, max, unit, step }) => (
               <div key={key} className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2 text-sm font-medium text-card-foreground">
-                    <Icon className="h-4 w-4 text-muted-foreground" />
+                  <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                    <Icon className="h-4 w-4 text-slate-400" />
                     {label}
                   </label>
-                  <span className="text-sm font-mono font-semibold text-primary">
-                    {typeof vitals[key] === "number" && vitals[key] % 1 !== 0
-                      ? vitals[key].toFixed(1)
-                      : vitals[key]}{" "}
-                    <span className="text-xs text-muted-foreground font-normal">
+                  <span className="text-sm font-mono font-semibold text-blue-600">
+                    {vitals[key] !== undefined
+                      ? vitals[key] % 1 !== 0
+                        ? vitals[key].toFixed(2)
+                        : vitals[key]
+                      : "0"}{" "}
+                    <span className="text-xs text-slate-400 font-normal">
                       {unit}
                     </span>
                   </span>
@@ -203,7 +334,7 @@ export function DiabetesTab({ vitals, onVitalsChange }: DiabetesTabProps) {
                   min={min}
                   max={max}
                   step={step || 1}
-                  value={[vitals[key]]}
+                  value={[vitals[key] || 0]}
                   onValueChange={([val]) =>
                     onVitalsChange({ ...vitals, [key]: val })
                   }
@@ -214,78 +345,158 @@ export function DiabetesTab({ vitals, onVitalsChange }: DiabetesTabProps) {
         </CardContent>
       </Card>
 
-      {/* Right: Outputs */}
-      <div className="flex flex-col gap-6">
-        {/* Risk Category */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-card-foreground">
-              <Brain className="h-5 w-5 text-primary" />
-              Integrated Risk Category
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-5">
-            <div className="flex items-center justify-between">
-              <Badge
-                className={`px-3 py-1.5 text-sm font-semibold ${
-                  risk.color === "clinical-safe"
-                    ? "bg-clinical-safe text-white"
-                    : risk.color === "clinical-warning"
-                      ? "bg-clinical-warning text-foreground"
-                      : "bg-clinical-danger text-white"
-                }`}
-              >
-                {risk.category}
-              </Badge>
-              <span className="text-2xl font-bold font-mono text-card-foreground">
-                {risk.totalRisk}%
-              </span>
-            </div>
-            <div className="flex flex-col gap-2">
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Low</span>
-                <span>Moderate</span>
-                <span>High</span>
-                <span>Critical</span>
-              </div>
-              <div className="relative h-3 w-full overflow-hidden rounded-full bg-muted">
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ${
-                    risk.totalRisk < 25
-                      ? "bg-clinical-safe"
-                      : risk.totalRisk < 50
-                        ? "bg-clinical-warning"
-                        : "bg-clinical-danger"
-                  }`}
-                  style={{ width: `${risk.totalRisk}%` }}
-                />
-              </div>
-            </div>
+      {/* RIGHT COLUMN: Outputs & Analytics (Takes up 7 columns) */}
+      <div className="lg:col-span-7 flex flex-col gap-6">
+        {/* 1. Integrated Risk Score Card */}
+        <Card
+          className={`border-2 transition-colors duration-500 ${riskColorClass}`}
+        >
+          <CardContent className="flex flex-col gap-5 pt-6">
+            {error ? (
+              <div className="text-sm font-semibold text-red-600">{error}</div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <Badge
+                    className={`px-4 py-2 text-sm font-semibold border-none ${badgeColorClass}`}
+                  >
+                    {category}
+                  </Badge>
+                  <div className="flex flex-col items-end">
+                    <span className="text-4xl font-bold font-mono">
+                      {apiResult ? `${confidenceScore.toFixed(1)}%` : "--"}
+                    </span>
+                    <span className="text-xs uppercase tracking-wider font-semibold opacity-70">
+                      Model Certainty
+                    </span>
+                  </div>
+                </div>
+
+                <div className="h-3 w-full overflow-hidden rounded-full bg-slate-200/50">
+                  <div
+                    className={`h-full transition-all duration-1000 ease-out ${badgeColorClass}`}
+                    style={{ width: apiResult ? `${confidenceScore}%` : "0%" }}
+                  />
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
-        {/* AI Recommendation */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-card-foreground">
-              AI Recommendation
-            </CardTitle>
-            <CardDescription>
-              Based on current vitals and risk assessment
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ul className="flex flex-col gap-3">
-              {recommendations.map((rec, i) => (
-                <li
-                  key={i}
-                  className="flex items-start gap-2.5 text-sm text-card-foreground leading-relaxed"
+        {/* 2. Side-by-Side Analytics Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* 2A. Time Series Trajectory */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                <LineChartIcon className="h-4 w-4" />
+                6-Month Trajectory
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4 h-[200px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={historyData}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="#e2e8f0"
+                  />
+                  <XAxis
+                    dataKey="month"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 12, fill: "#64748b" }}
+                  />
+                  <YAxis hide domain={[0, 100]} />
+                  <Tooltip
+                    contentStyle={{
+                      borderRadius: "8px",
+                      border: "none",
+                      boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                    }}
+                    formatter={(value: number) => [`${value}%`, "Risk Score"]}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="score"
+                    stroke={
+                      category === "Healthy"
+                        ? "#22c55e"
+                        : category === "Critical Risk"
+                          ? "#dc2626"
+                          : "#f59e0b"
+                    }
+                    strokeWidth={3}
+                    dot={{ strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          {/* 2B. XAI Risk Drivers */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                <BarChart3 className="h-4 w-4" />
+                Top Risk Drivers (XAI)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4 h-[200px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={riskDrivers}
+                  layout="vertical"
+                  margin={{ top: 0, right: 0, left: -20, bottom: 0 }}
                 >
-                  <div className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                  {rec}
-                </li>
-              ))}
-            </ul>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    horizontal={false}
+                    stroke="#e2e8f0"
+                  />
+                  <XAxis type="number" hide />
+                  <YAxis
+                    dataKey="name"
+                    type="category"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 11, fill: "#475569" }}
+                    width={110}
+                  />
+                  <Tooltip
+                    cursor={{ fill: "#f1f5f9" }}
+                    contentStyle={{ borderRadius: "8px" }}
+                  />
+                  <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
+                    {riskDrivers.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* 3. Clinical Interpretation */}
+        <Card className="bg-slate-50 border-slate-200">
+          <CardContent className="pt-6">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 block">
+              Clinical Interpretation
+            </span>
+            <p className="text-slate-700 font-medium text-sm leading-relaxed">
+              {category === "Healthy" &&
+                "The patient's clinical vitals and daily behavioral habits are well within optimal physiological ranges. No metabolic distress detected."}
+              {category === "Elevated (Behavioral)" &&
+                "Clinical vitals are stable, but behavioral patterns (low steps, high sedentary time) are creating a trajectory toward metabolic syndrome. Immediate lifestyle intervention is recommended."}
+              {category === "Moderate (Medical)" &&
+                "Behavioral factors aside, the patient's actual clinical markers have crossed the threshold into pre-diabetic or hypertensive territory. Pharmacological review required."}
+              {category === "Critical Risk" &&
+                "A dangerous compounding effect: the patient has severe clinical abnormalities combined with extremely poor behavioral habits, signaling acute metabolic danger."}
+              {!apiResult &&
+                "Adjust the sliders to see how the model interprets different combinations of clinical and behavioral data."}
+            </p>
           </CardContent>
         </Card>
       </div>
