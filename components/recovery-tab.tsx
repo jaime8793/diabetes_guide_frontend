@@ -658,7 +658,7 @@ export function RecoveryTab({ data, onDataChange }: RecoveryTabProps) {
                       border: "none",
                       boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
                     }}
-                    formatter={(value: number) => [
+                    formatter={(value: any) => [
                       `${value}%`,
                       "Injury Probability",
                     ]}
@@ -708,8 +708,15 @@ export function RecoveryTab({ data, onDataChange }: RecoveryTabProps) {
                     width={110}
                   />
                   <Tooltip
-                    cursor={{ fill: "#f1f5f9" }}
-                    contentStyle={{ borderRadius: "8px" }}
+                    contentStyle={{
+                      borderRadius: "8px",
+                      border: "none",
+                      boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                    }}
+                    formatter={(value: any) => [
+                      `${value}%`,
+                      "Injury Probability",
+                    ]}
                   />
                   <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
                     {riskDrivers.map((entry, index) => (

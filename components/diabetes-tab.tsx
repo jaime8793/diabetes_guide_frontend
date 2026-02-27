@@ -414,7 +414,7 @@ export function DiabetesTab({ vitals, onVitalsChange }: MetabolicTabProps) {
                       border: "none",
                       boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
                     }}
-                    formatter={(value: number) => [`${value}%`, "Risk Score"]}
+                    formatter={(value: any) => [`${value}%`, "Risk Score"]}
                   />
                   <Line
                     type="monotone"
