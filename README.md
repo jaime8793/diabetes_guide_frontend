@@ -1,3 +1,5 @@
+# diabetes_guide_frontend
+Frontend for the Vitals guide predictor.
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
