@@ -1,5 +1,5 @@
 "use client";
-
+import type { StrokeData } from "@/components/stroke-tab"; // <-- ADD THIS LINE
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DashboardHeader } from "@/components/dashboard-header";
@@ -494,7 +494,12 @@ export default function Page() {
   const [diabetesVitals, setDiabetesVitals] = useState(
     METABOLIC_SCENARIOS[0].diabetes,
   );
-  const [strokeData, setStrokeData] = useState(METABOLIC_SCENARIOS[0].stroke);
+
+  // <-- CHANGE THIS LINE to include <StrokeData>
+  const [strokeData, setStrokeData] = useState<StrokeData>(
+    METABOLIC_SCENARIOS[0].stroke,
+  );
+
   const [recoveryData, setRecoveryData] = useState<RecoveryData>(
     METABOLIC_SCENARIOS[0].recovery,
   );
