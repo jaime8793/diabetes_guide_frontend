@@ -219,7 +219,7 @@ export default function LandingPage() {
             </p>
 
             <a
-              href="https://linkedin.com/in/yourprofile"
+              href="https://www.linkedin.com/in/jamesowiti/"
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-2 text-sm font-bold text-white hover:text-indigo-300 transition-colors"
