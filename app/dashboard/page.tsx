@@ -479,7 +479,6 @@ const ATHLETIC_SCENARIOS = [
 export default function Page() {
   // 1. Track which tab is currently open
   const [activeTab, setActiveTab] = useState("diabetes");
-  const [selectedPatient, setSelectedPatient] = useState("pt-001");
 
   // 2. Determine which scenario list to show based on the active tab
   let activeScenarios = METABOLIC_SCENARIOS;
@@ -533,10 +532,7 @@ export default function Page() {
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
-      <DashboardHeader
-        selectedPatient={selectedPatient}
-        onPatientChange={setSelectedPatient}
-      />
+      <DashboardHeader />
 
       <main className="flex-1 px-4 py-6 md:px-6 lg:px-8 max-w-[1600px] mx-auto w-full flex flex-col lg:flex-row gap-6">
         {/* Left Sidebar: Context-Aware Scenario Picker */}
