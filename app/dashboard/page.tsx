@@ -558,21 +558,20 @@ export default function Page() {
                 <span className="sm:hidden">Injury</span>
               </TabsTrigger>
             </TabsList>
-
-            <TabsContent value="master" className="mt-0 outline-none">
-              <MasterTab vitals={vitals} />
-            </TabsContent>
-
-            <TabsContent value="diabetes" className="mt-0 outline-none">
-              <DiabetesTab vitals={vitals} onVitalsChange={setVitals as any} />
+            <TabsContent value="recovery" className="mt-0 outline-none">
+              <RecoveryTab vitals={vitals} onVitalsChange={setVitals as any} />
             </TabsContent>
 
             <TabsContent value="stroke" className="mt-0 outline-none">
               <StrokeTab vitals={vitals} onVitalsChange={setVitals as any} />
             </TabsContent>
 
-            <TabsContent value="recovery" className="mt-0 outline-none">
-              <RecoveryTab vitals={vitals} onVitalsChange={setVitals as any} />
+            <TabsContent value="diabetes" className="mt-0 outline-none">
+              <DiabetesTab vitals={vitals} onVitalsChange={setVitals as any} />
+            </TabsContent>
+
+            <TabsContent value="master" className="mt-0 outline-none">
+              <MasterTab vitals={vitals} />
             </TabsContent>
           </Tabs>
         </div>
@@ -580,8 +579,8 @@ export default function Page() {
 
       <footer className="border-t border-slate-200 bg-white px-6 py-4 mt-auto">
         <p className="text-center text-xs text-slate-500 font-medium tracking-wide">
-          VitalsGuard Clinical Engine &mdash; For authorized healthcare
-          professionals only. Not a substitute for clinical judgment.
+          VitalsGuard Clinical Engine &mdash; Not a substitute for clinical
+          judgment.
         </p>
       </footer>
     </div>
