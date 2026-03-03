@@ -479,7 +479,7 @@ export function RecoveryTab({ data, onDataChange }: RecoveryTabProps) {
           <div className="mt-2 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
             <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
             <span className="text-xs text-slate-500">
-              Wearable data synced &mdash; Last updated: Today, 7:32 AM
+              Wearable data synced &mdash; Last updated: Today
             </span>
           </div>
         </CardContent>
