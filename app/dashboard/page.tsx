@@ -564,15 +564,15 @@ export default function Page() {
             </TabsContent>
 
             <TabsContent value="diabetes" className="mt-0 outline-none">
-              <DiabetesTab vitals={vitals} onVitalsChange={setVitals} />
+              <DiabetesTab vitals={vitals} onVitalsChange={setVitals as any} />
             </TabsContent>
 
             <TabsContent value="stroke" className="mt-0 outline-none">
-              <StrokeTab vitals={vitals} onVitalsChange={setVitals} />
+              <StrokeTab vitals={vitals} onVitalsChange={setVitals as any} />
             </TabsContent>
 
             <TabsContent value="recovery" className="mt-0 outline-none">
-              <RecoveryTab vitals={vitals} onVitalsChange={setVitals} />
+              <RecoveryTab vitals={vitals} onVitalsChange={setVitals as any} />
             </TabsContent>
           </Tabs>
         </div>

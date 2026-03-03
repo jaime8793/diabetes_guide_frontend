@@ -42,7 +42,11 @@ import {
 } from "recharts";
 
 // 1. Updated Props to include universal lifestyle variables
+// Inside components/diabetes-tab.tsx
+
 interface MetabolicTabProps {
+  // Change the vitals type to accept any properties 
+  // or define the full global state shape
   vitals: {
     age: number;
     pregnancies: number;
@@ -51,14 +55,20 @@ interface MetabolicTabProps {
     skinThickness: number;
     insulin: number;
     diabetesPedigree: number;
-    // Universal Lifestyle Variables
     bmi: number;
     dailySteps: number;
     sleepHours: number;
     hydrationLiters: number;
     stressLevel: number;
+    // Add these to match the global state
+    hypertension?: number;
+    heartDisease?: number;
+    smokingStatus?: string;
+    trainingIntensity?: number;
+    restingHeartRate?: number;
   };
-  onVitalsChange: (vitals: MetabolicTabProps["vitals"]) => void;
+  // Update this to accept the full object shape
+  onVitalsChange: (vitals: any) => void; 
 }
 
 // Helpers
