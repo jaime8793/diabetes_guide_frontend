@@ -47,7 +47,7 @@ export function MasterTab({ vitals }: MasterTabProps) {
 
     const fetchAllData = async () => {
       setLoading(true);
-        const apiUrl = "http://localhost:8000" || process.env.NEXT_PUBLIC_API_URL;
+        const apiUrl =  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
       try {
         // Fire all 3 API requests simultaneously

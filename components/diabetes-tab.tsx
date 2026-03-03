@@ -144,8 +144,7 @@ export function DiabetesTab({ vitals, onVitalsChange }: MetabolicTabProps) {
       try {
         setError(null);
         const apiUrl =
-          // process.env.NEXT_PUBLIC_API_URL ||
-          "http://localhost:8000";
+           process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
         const response = await fetch(`${apiUrl}/predict/metabolic`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },

@@ -158,7 +158,7 @@ export function StrokeTab({ vitals, onVitalsChange }: StrokeTabProps) {
       setError(null);
 
       try {
-        const apiUrl = "http://localhost:8000" || process.env.NEXT_PUBLIC_API_URL;
+        const apiUrl =  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
         const response = await fetch(`${apiUrl}/predict/stroke`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
