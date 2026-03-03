@@ -367,7 +367,7 @@ export function DiabetesTab({ vitals, onVitalsChange }: MetabolicTabProps) {
                       {apiResult ? `${confidenceScore.toFixed(1)}%` : "--"}
                     </span>
                     <span className="text-xs uppercase tracking-wider font-semibold opacity-70">
-                      Model Certainty
+                      VITALSGUARD INDEX
                     </span>
                   </div>
                 </div>
