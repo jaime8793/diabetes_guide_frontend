@@ -1,12 +1,12 @@
 "use client";
-import type { StrokeData } from "@/components/stroke-tab"; // <-- ADD THIS LINE
+
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { DiabetesTab } from "@/components/diabetes-tab";
 import { StrokeTab } from "@/components/stroke-tab";
 import { RecoveryTab } from "@/components/recovery-tab";
-import type { RecoveryData } from "@/components/recovery-tab";
+import { MasterTab } from "@/components/master-tab";
 import {
   Activity,
   BrainCircuit,
@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   HeartPulse,
   Siren,
+  Sparkles,
 } from "lucide-react";
 import {
   Card,
@@ -27,7 +28,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 
 // ---------------------------------------------------------------------------
-// 1. METABOLIC SCENARIOS (For Diabetes Tab)
+// 1. METABOLIC SCENARIOS
 // ---------------------------------------------------------------------------
 const METABOLIC_SCENARIOS = [
   {
@@ -38,32 +39,24 @@ const METABOLIC_SCENARIOS = [
     bgColor: "bg-green-100",
     description:
       "Highly active, perfect clinical labs. Tests the model's baseline for 'Healthy' classification.",
-    diabetes: {
+    data: {
       age: 28,
       bmi: 21.5,
       glucose: 82,
+      bloodPressure: 79,
       insulin: 12,
-      bloodPressure: 70,
       skinThickness: 15,
       pregnancies: 0,
       diabetesPedigree: 0.15,
+      hypertension: 0,
+      heartDisease: 0,
+      smokingStatus: "never smoked",
       dailySteps: 14000,
-    },
-    stroke: {
-      age: 28,
-      avgGlucose: 82,
-      bmi: 21.5,
-      hypertension: false,
-      heartDisease: false,
-      smokingStatus: "never_smoked",
-      dailySteps: 14000,
-    },
-    recovery: {
-      sleepQuality: 8.5,
+      sleepHours: 8.5,
+      hydrationLiters: 3.5,
       stressLevel: 2,
       restingHeartRate: 50,
-      hydrationLevel: 90,
-      trainingIntensity: 8,
+      trainingIntensity: 7,
     },
   },
   {
@@ -74,32 +67,24 @@ const METABOLIC_SCENARIOS = [
     bgColor: "bg-yellow-100",
     description:
       "Normal labs, but dangerously sedentary and high stress. Tests the 'Elevated (Behavioral)' early warning system.",
-    diabetes: {
+    data: {
       age: 45,
-      bmi: 25.5,
+      bmi: 26.5,
       glucose: 95,
+      bloodPressure: 125,
       insulin: 18,
-      bloodPressure: 82,
       skinThickness: 22,
       pregnancies: 0,
       diabetesPedigree: 0.3,
-      dailySteps: 1500,
-    },
-    stroke: {
-      age: 45,
-      avgGlucose: 95,
-      bmi: 25.5,
-      hypertension: true,
-      heartDisease: false,
-      smokingStatus: "formerly_smoked",
-      dailySteps: 1500,
-    },
-    recovery: {
-      sleepQuality: 5.0,
-      stressLevel: 8,
-      restingHeartRate: 72,
-      hydrationLevel: 60,
-      trainingIntensity: 3,
+      hypertension: 0,
+      heartDisease: 0,
+      smokingStatus: "formerly smoked",
+      dailySteps: 2500,
+      sleepHours: 4.5,
+      hydrationLiters: 1.2,
+      stressLevel: 9,
+      restingHeartRate: 75,
+      trainingIntensity: 5,
     },
   },
   {
@@ -110,31 +95,23 @@ const METABOLIC_SCENARIOS = [
     bgColor: "bg-orange-100",
     description:
       "Active lifestyle, but genetics/age are forcing labs into pre-diabetic thresholds. Tests 'Moderate (Medical)' priority.",
-    diabetes: {
-      age: 55,
+    data: {
+      age: 58,
       bmi: 31.0,
       glucose: 145,
+      bloodPressure: 140,
       insulin: 95,
-      bloodPressure: 92,
       skinThickness: 30,
       pregnancies: 2,
       diabetesPedigree: 0.85,
+      hypertension: 1,
+      heartDisease: 0,
+      smokingStatus: "never smoked",
       dailySteps: 8500,
-    },
-    stroke: {
-      age: 55,
-      avgGlucose: 145,
-      bmi: 31.0,
-      hypertension: true,
-      heartDisease: false,
-      smokingStatus: "smokes",
-      dailySteps: 8500,
-    },
-    recovery: {
-      sleepQuality: 6.0,
-      stressLevel: 6,
-      restingHeartRate: 78,
-      hydrationLevel: 55,
+      sleepHours: 6.5,
+      hydrationLiters: 2.0,
+      stressLevel: 5,
+      restingHeartRate: 68,
       trainingIntensity: 4,
     },
   },
@@ -145,75 +122,59 @@ const METABOLIC_SCENARIOS = [
     color: "text-red-600",
     bgColor: "bg-red-100",
     description:
-      "Severe compounding of morbid obesity, high glucose, and zero activity. Triggers 'Critical Risk' across all models.",
-    diabetes: {
+      "Severe compounding of morbid obesity, high glucose, and zero activity. Triggers 'Critical Risk'.",
+    data: {
       age: 68,
       bmi: 38.5,
       glucose: 195,
+      bloodPressure: 165,
       insulin: 150,
-      bloodPressure: 105,
       skinThickness: 45,
       pregnancies: 3,
       diabetesPedigree: 1.2,
-      dailySteps: 800,
-    },
-    stroke: {
-      age: 68,
-      avgGlucose: 195,
-      bmi: 38.5,
-      hypertension: true,
-      heartDisease: true,
+      hypertension: 1,
+      heartDisease: 1,
       smokingStatus: "smokes",
-      dailySteps: 800,
-    },
-    recovery: {
-      sleepQuality: 4.0,
-      stressLevel: 9,
+      dailySteps: 1200,
+      sleepHours: 4.0,
+      hydrationLiters: 0.8,
+      stressLevel: 10,
       restingHeartRate: 88,
-      hydrationLevel: 40,
-      trainingIntensity: 1,
+      trainingIntensity: 2,
     },
   },
 ];
 
 // ---------------------------------------------------------------------------
-// 2. STROKE SCENARIOS (For Stroke Tab)
+// 2. STROKE SCENARIOS
 // ---------------------------------------------------------------------------
 const STROKE_SCENARIOS = [
   {
     id: "optimal_stroke",
-    name: "The Optimal Baseline",
+    name: "Vascular Integrity",
     icon: CheckCircle2,
     color: "text-green-600",
     bgColor: "bg-green-100",
     description:
       "Young, highly active, non-smoker with perfect clinical labs. Tests the model's baseline for 'Low Risk'.",
-    diabetes: {
+    data: {
       age: 32,
       bmi: 22.0,
       glucose: 85,
-      insulin: 12,
       bloodPressure: 110,
+      insulin: 12,
       skinThickness: 15,
       pregnancies: 0,
       diabetesPedigree: 0.15,
-      dailySteps: 12000,
-    },
-    stroke: {
-      age: 32,
-      avgGlucose: 85,
-      bmi: 22.0,
-      hypertension: false,
-      heartDisease: false,
+      hypertension: 0,
+      heartDisease: 0,
       smokingStatus: "never smoked",
       dailySteps: 12000,
-    },
-    recovery: {
-      sleepQuality: 8.5,
-      stressLevel: 2,
-      restingHeartRate: 50,
-      hydrationLevel: 90,
-      trainingIntensity: 8,
+      sleepHours: 8.0,
+      hydrationLiters: 3.0,
+      stressLevel: 3,
+      restingHeartRate: 55,
+      trainingIntensity: 7,
     },
   },
   {
@@ -224,31 +185,23 @@ const STROKE_SCENARIOS = [
     bgColor: "bg-yellow-100",
     description:
       "Middle-aged with normal BMI/Glucose, but currently smokes and is highly sedentary. Tests behavioral vascular stress.",
-    diabetes: {
+    data: {
       age: 48,
       bmi: 25.5,
       glucose: 105,
-      insulin: 18,
       bloodPressure: 125,
+      insulin: 18,
       skinThickness: 22,
       pregnancies: 0,
       diabetesPedigree: 0.3,
-      dailySteps: 2500,
-    },
-    stroke: {
-      age: 48,
-      avgGlucose: 105,
-      bmi: 25.5,
-      hypertension: false,
-      heartDisease: false,
+      hypertension: 0,
+      heartDisease: 0,
       smokingStatus: "smokes",
       dailySteps: 2500,
-    },
-    recovery: {
-      sleepQuality: 5.0,
-      stressLevel: 8,
+      sleepHours: 5.5,
+      hydrationLiters: 1.5,
+      stressLevel: 7,
       restingHeartRate: 72,
-      hydrationLevel: 60,
       trainingIntensity: 3,
     },
   },
@@ -260,31 +213,23 @@ const STROKE_SCENARIOS = [
     bgColor: "bg-orange-100",
     description:
       "Older patient with chronic high blood pressure and climbing glucose. Tests sensitivity to clinical aging factors.",
-    diabetes: {
+    data: {
       age: 62,
       bmi: 29.0,
       glucose: 135,
-      insulin: 45,
       bloodPressure: 145,
+      insulin: 45,
       skinThickness: 28,
       pregnancies: 2,
       diabetesPedigree: 0.6,
-      dailySteps: 6000,
-    },
-    stroke: {
-      age: 62,
-      avgGlucose: 135,
-      bmi: 29.0,
-      hypertension: true,
-      heartDisease: false,
+      hypertension: 1,
+      heartDisease: 0,
       smokingStatus: "formerly smoked",
       dailySteps: 6000,
-    },
-    recovery: {
-      sleepQuality: 6.0,
+      sleepHours: 6.0,
+      hydrationLiters: 2.2,
       stressLevel: 6,
       restingHeartRate: 78,
-      hydrationLevel: 55,
       trainingIntensity: 4,
     },
   },
@@ -295,39 +240,31 @@ const STROKE_SCENARIOS = [
     color: "text-red-600",
     bgColor: "bg-red-100",
     description:
-      "Severe compounding of advanced age, prior heart disease, active smoking, and high glucose. Triggers 'High Risk' critical alerts.",
-    diabetes: {
+      "Severe compounding of advanced age, prior heart disease, active smoking, and high glucose. Triggers critical alerts.",
+    data: {
       age: 75,
       bmi: 34.0,
       glucose: 190,
-      insulin: 120,
       bloodPressure: 160,
+      insulin: 120,
       skinThickness: 35,
       pregnancies: 3,
       diabetesPedigree: 0.9,
-      dailySteps: 1500,
-    },
-    stroke: {
-      age: 75,
-      avgGlucose: 190,
-      bmi: 34.0,
-      hypertension: true,
-      heartDisease: true,
+      hypertension: 1,
+      heartDisease: 1,
       smokingStatus: "smokes",
       dailySteps: 1500,
-    },
-    recovery: {
-      sleepQuality: 4.0,
+      sleepHours: 4.5,
+      hydrationLiters: 1.0,
       stressLevel: 9,
       restingHeartRate: 88,
-      hydrationLevel: 40,
       trainingIntensity: 1,
     },
   },
 ];
 
 // ---------------------------------------------------------------------------
-// 3. ATHLETIC SCENARIOS (For Recovery Tab)
+// 3. ATHLETIC SCENARIOS
 // ---------------------------------------------------------------------------
 const ATHLETIC_SCENARIOS = [
   {
@@ -337,33 +274,25 @@ const ATHLETIC_SCENARIOS = [
     color: "text-green-600",
     bgColor: "bg-green-100",
     description:
-      "Perfectly recovered (9/10 sleep). Cleared for maximum training intensity (9/10).",
-    diabetes: {
+      "Perfectly recovered (9hrs sleep, high hydration). Cleared for high training intensity.",
+    data: {
       age: 24,
       bmi: 22.0,
       glucose: 85,
-      insulin: 10,
       bloodPressure: 110,
+      insulin: 10,
       skinThickness: 12,
       pregnancies: 0,
       diabetesPedigree: 0.2,
+      hypertension: 0,
+      heartDisease: 0,
+      smokingStatus: "never smoked",
       dailySteps: 15000,
-    },
-    stroke: {
-      age: 24,
-      avgGlucose: 85,
-      bmi: 22.0,
-      hypertension: false,
-      heartDisease: false,
-      smokingStatus: "never_smoked",
-      dailySteps: 15000,
-    },
-    recovery: {
-      sleepQuality: 9.0,
+      sleepHours: 9.0,
+      hydrationLiters: 4.0,
       stressLevel: 2,
       restingHeartRate: 48,
-      hydrationLevel: 95,
-      trainingIntensity: 9,
+      trainingIntensity: 7,
     },
   },
   {
@@ -374,31 +303,23 @@ const ATHLETIC_SCENARIOS = [
     bgColor: "bg-yellow-100",
     description:
       "Decent sleep, but accumulated central nervous system stress is high. Pushing intensity today will spike injury risk.",
-    diabetes: {
+    data: {
       age: 29,
       bmi: 24.5,
       glucose: 92,
-      insulin: 14,
       bloodPressure: 120,
+      insulin: 14,
       skinThickness: 15,
       pregnancies: 0,
       diabetesPedigree: 0.3,
+      hypertension: 0,
+      heartDisease: 0,
+      smokingStatus: "never smoked",
       dailySteps: 12000,
-    },
-    stroke: {
-      age: 29,
-      avgGlucose: 92,
-      bmi: 24.5,
-      hypertension: false,
-      heartDisease: false,
-      smokingStatus: "never_smoked",
-      dailySteps: 12000,
-    },
-    recovery: {
-      sleepQuality: 6.5,
+      sleepHours: 6.5,
+      hydrationLiters: 2.5,
       stressLevel: 7,
       restingHeartRate: 65,
-      hydrationLevel: 75,
       trainingIntensity: 8,
     },
   },
@@ -409,32 +330,24 @@ const ATHLETIC_SCENARIOS = [
     color: "text-red-600",
     bgColor: "bg-red-100",
     description:
-      "Poor sleep and high life stress, but attempting a massive workout (intensity: 9). High probability of acute injury.",
-    diabetes: {
+      "Poor sleep, dehydrated, and high life stress, but attempting a massive workout. High probability of acute injury.",
+    data: {
       age: 42,
       bmi: 28.0,
       glucose: 105,
-      insulin: 22,
       bloodPressure: 130,
+      insulin: 22,
       skinThickness: 24,
       pregnancies: 0,
       diabetesPedigree: 0.5,
+      hypertension: 0,
+      heartDisease: 0,
+      smokingStatus: "formerly smoked",
       dailySteps: 6000,
-    },
-    stroke: {
-      age: 42,
-      avgGlucose: 105,
-      bmi: 28.0,
-      hypertension: true,
-      heartDisease: false,
-      smokingStatus: "formerly_smoked",
-      dailySteps: 6000,
-    },
-    recovery: {
-      sleepQuality: 4.5,
+      sleepHours: 4.5,
+      hydrationLiters: 1.5,
       stressLevel: 8.5,
       restingHeartRate: 78,
-      hydrationLevel: 50,
       trainingIntensity: 9,
     },
   },
@@ -446,87 +359,101 @@ const ATHLETIC_SCENARIOS = [
     bgColor: "bg-blue-100",
     description:
       "Under-recovered from a bad night's sleep, but smartly lowered planned intensity to 3/10. Model clears them to train.",
-    diabetes: {
+    data: {
       age: 35,
       bmi: 25.0,
       glucose: 90,
-      insulin: 15,
       bloodPressure: 115,
+      insulin: 15,
       skinThickness: 18,
       pregnancies: 1,
       diabetesPedigree: 0.4,
+      hypertension: 0,
+      heartDisease: 0,
+      smokingStatus: "never smoked",
       dailySteps: 8000,
-    },
-    stroke: {
-      age: 35,
-      avgGlucose: 90,
-      bmi: 25.0,
-      hypertension: false,
-      heartDisease: false,
-      smokingStatus: "never_smoked",
-      dailySteps: 8000,
-    },
-    recovery: {
-      sleepQuality: 4.0,
+      sleepHours: 4.0,
+      hydrationLiters: 2.0,
       stressLevel: 6,
       restingHeartRate: 68,
-      hydrationLevel: 65,
       trainingIntensity: 3,
     },
   },
 ];
 
+// ---------------------------------------------------------------------------
+// 4. MASTER SCENARIOS (Holistic Overviews)
+// ---------------------------------------------------------------------------
+const MASTER_SCENARIOS = [
+  {
+    id: "holistic_healthy",
+    name: "Holistic Optimization",
+    icon: Sparkles,
+    color: "text-indigo-600",
+    bgColor: "bg-indigo-100",
+    description:
+      "A 360-degree view of a patient whose clinical baselines and lifestyle habits are completely dialed in.",
+    data: METABOLIC_SCENARIOS[0].data, // Reuse the optimal data
+  },
+  {
+    id: "holistic_burnout",
+    name: "Systemic Burnout",
+    icon: AlertTriangle,
+    color: "text-orange-600",
+    bgColor: "bg-orange-100",
+    description:
+      "Shows how severe lifestyle deficits (sleep, stress, hydration) negatively cascade across all three medical models simultaneously.",
+    data: METABOLIC_SCENARIOS[1].data,
+  },
+  {
+    id: "holistic_critical",
+    name: "Multi-System Failure",
+    icon: Siren,
+    color: "text-red-600",
+    bgColor: "bg-red-100",
+    description:
+      "A dangerous combination of clinical disease markers and terrible behavioral habits. Red alerts across the board.",
+    data: METABOLIC_SCENARIOS[3].data,
+  },
+];
+
 export default function Page() {
-  // 1. Track which tab is currently open
   const [activeTab, setActiveTab] = useState("diabetes");
 
-  // 2. Determine which scenario list to show based on the active tab
+  // Determine which scenario list to show based on the active tab
   let activeScenarios = METABOLIC_SCENARIOS;
   if (activeTab === "stroke") activeScenarios = STROKE_SCENARIOS;
   if (activeTab === "recovery") activeScenarios = ATHLETIC_SCENARIOS;
+  if (activeTab === "master") activeScenarios = MASTER_SCENARIOS;
 
   const [activeScenarioId, setActiveScenarioId] = useState(
     METABOLIC_SCENARIOS[0].id,
   );
 
-  // Unified State driven by the scenarios
-  const [diabetesVitals, setDiabetesVitals] = useState(
-    METABOLIC_SCENARIOS[0].diabetes,
-  );
+  // The unified state that gets passed to whichever tab is currently open
+  const [vitals, setVitals] = useState(METABOLIC_SCENARIOS[0].data);
 
-  // <-- CHANGE THIS LINE to include <StrokeData>
-  const [strokeData, setStrokeData] = useState<StrokeData>(
-    METABOLIC_SCENARIOS[0].stroke,
-  );
-
-  const [recoveryData, setRecoveryData] = useState<RecoveryData>(
-    METABOLIC_SCENARIOS[0].recovery,
-  );
-
-  // Handler to inject data across all 3 AI models instantly
   const handleApplyScenario = (scenario: any) => {
     setActiveScenarioId(scenario.id);
-    setDiabetesVitals(scenario.diabetes);
-    setStrokeData(scenario.stroke);
-    setRecoveryData(scenario.recovery);
+    setVitals(scenario.data);
   };
 
-  // Handler for when a user switches tabs
   const handleTabChange = (value: string) => {
     setActiveTab(value);
 
-    // Auto-select the first scenario of the new group so the UI instantly matches the context
+    // Auto-select the first scenario of the new group so the context shifts instantly
     let newScenarios = METABOLIC_SCENARIOS;
     if (value === "stroke") newScenarios = STROKE_SCENARIOS;
     if (value === "recovery") newScenarios = ATHLETIC_SCENARIOS;
+    if (value === "master") newScenarios = MASTER_SCENARIOS;
 
     handleApplyScenario(newScenarios[0]);
   };
 
-  // Dynamic Sidebar Title
   const getSidebarTitle = () => {
     if (activeTab === "recovery") return "Athletic Profiles";
     if (activeTab === "stroke") return "Cerebrovascular Profiles";
+    if (activeTab === "master") return "Holistic Profiles";
     return "Metabolic Profiles";
   };
 
@@ -535,7 +462,7 @@ export default function Page() {
       <DashboardHeader />
 
       <main className="flex-1 px-4 py-6 md:px-6 lg:px-8 max-w-[1600px] mx-auto w-full flex flex-col lg:flex-row gap-6">
-        {/* Left Sidebar: Context-Aware Scenario Picker */}
+        {/* LEFT SIDEBAR: Context-Aware Scenario Picker */}
         <div className="w-full lg:w-80 shrink-0 flex flex-col gap-4">
           <Card className="border-none shadow-sm bg-white">
             <CardHeader className="pb-3">
@@ -544,9 +471,7 @@ export default function Page() {
                 {getSidebarTitle()}
               </CardTitle>
               <CardDescription>
-                {activeTab === "recovery"
-                  ? "Test the injury prediction model with specific lifestyle inputs."
-                  : "Inject unified profiles to test VitalsGuard risk mapping."}
+                Select a baseline profile to inject into the simulation engine.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
@@ -592,14 +517,22 @@ export default function Page() {
           </Card>
         </div>
 
-        {/* Right Content: The AI Tabs */}
+        {/* RIGHT CONTENT: The AI Tabs */}
         <div className="flex-1 min-w-0">
           <Tabs
             value={activeTab}
             onValueChange={handleTabChange}
             className="w-full"
           >
-            <TabsList className="mb-6 h-11 w-full max-w-2xl bg-white border shadow-sm">
+            <TabsList className="mb-6 h-11 w-full max-w-3xl bg-white border shadow-sm">
+              <TabsTrigger
+                value="master"
+                className="gap-1.5 px-4 data-[state=active]:bg-slate-100"
+              >
+                <Users className="h-4 w-4" />
+                <span className="hidden sm:inline">Master Overview</span>
+                <span className="sm:hidden">Overview</span>
+              </TabsTrigger>
               <TabsTrigger
                 value="diabetes"
                 className="gap-1.5 px-4 data-[state=active]:bg-slate-100"
@@ -626,19 +559,20 @@ export default function Page() {
               </TabsTrigger>
             </TabsList>
 
+            <TabsContent value="master" className="mt-0 outline-none">
+              <MasterTab vitals={vitals} />
+            </TabsContent>
+
             <TabsContent value="diabetes" className="mt-0 outline-none">
-              <DiabetesTab
-                vitals={diabetesVitals}
-                onVitalsChange={setDiabetesVitals}
-              />
+              <DiabetesTab vitals={vitals} onVitalsChange={setVitals} />
             </TabsContent>
 
             <TabsContent value="stroke" className="mt-0 outline-none">
-              <StrokeTab data={strokeData} onDataChange={setStrokeData} />
+              <StrokeTab vitals={vitals} onVitalsChange={setVitals} />
             </TabsContent>
 
             <TabsContent value="recovery" className="mt-0 outline-none">
-              <RecoveryTab data={recoveryData} onDataChange={setRecoveryData} />
+              <RecoveryTab vitals={vitals} onVitalsChange={setVitals} />
             </TabsContent>
           </Tabs>
         </div>

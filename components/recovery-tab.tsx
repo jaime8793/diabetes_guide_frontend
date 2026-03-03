@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Card,
   CardContent,
@@ -9,7 +9,6 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Watch,
   Moon,
@@ -20,11 +19,11 @@ import {
   ShieldAlert,
   ShieldCheck,
   Dumbbell,
-  Sparkles,
+  Activity,
   Loader2,
   Scale,
   User,
-  Activity,
+  Lightbulb,
   LineChart as LineChartIcon,
   BarChart3,
 } from "lucide-react";
@@ -42,28 +41,23 @@ import {
 } from "recharts";
 
 // ---------------------------------------------------------------------------
-// Types
+// Types mapping to the Unified Global Profile
 // ---------------------------------------------------------------------------
-export interface RecoveryData {
-  age?: number;
-  bmi?: number;
-  sleepQuality?: number;
-  stressLevel?: number;
-  restingHeartRate?: number;
-  hydrationLevel?: number;
-  trainingIntensity?: number;
-}
-
-interface ApiResult {
-  status: string;
-  ai_recovery_score: number;
-  injury_risk: string;
-  injury_probability?: number;
-}
-
-interface RecoveryTabProps {
-  data: RecoveryData;
-  onDataChange: (data: RecoveryData) => void;
+export interface RecoveryTabProps {
+  vitals: {
+    // Biometrics
+    age: number;
+    bmi: number;
+    restingHeartRate: number;
+    // Lifestyle & Training
+    trainingIntensity: number;
+    sleepHours: number;
+    hydrationLiters: number;
+    stressLevel: number;
+    dailySteps: number;
+    // (Other properties exist in global state but aren't needed here)
+  };
+  onVitalsChange: (vitals: any) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -73,10 +67,9 @@ function generateInjuryHistory(currentProb: number, status: string) {
   const months = ["Sep", "Oct", "Nov", "Dec", "Jan", "Feb"];
   let trend = 0;
 
-  if (status === "High Risk of Injury")
-    trend = -12; // Risk has been climbing
+  if (status === "High Risk of Injury") trend = -12;
   else if (status === "Elevated Risk (Caution)") trend = -5;
-  else trend = 0; // Flat/Safe
+  else trend = 0;
 
   return months.map((month, index) => {
     const noise = Math.random() * 8 - 4;
@@ -88,37 +81,38 @@ function generateInjuryHistory(currentProb: number, status: string) {
   });
 }
 
-function calculateInjuryDrivers(data: RecoveryData) {
+function calculateInjuryDrivers(vitals: RecoveryTabProps["vitals"]) {
   const drivers = [];
-  const sleep = data.sleepQuality ?? 7;
-  const stress = data.stressLevel ?? 5;
-  const intensity = data.trainingIntensity ?? 5;
-  const hydration = data.hydrationLevel ?? 70;
 
-  // Calculate deviation from optimal recovery states
-  if (sleep < 7)
+  if (vitals.sleepHours < 6)
     drivers.push({
       name: "Sleep Deficit",
-      value: (7 - sleep) * 15,
+      value: (7 - vitals.sleepHours) * 15,
       color: "#f97316",
     });
-  if (stress > 5)
+  if (vitals.stressLevel > 6)
     drivers.push({
       name: "Systemic Stress",
-      value: (stress - 5) * 12,
+      value: (vitals.stressLevel - 5) * 12,
       color: "#ef4444",
     });
-  if (intensity > 7)
+  if (vitals.trainingIntensity > 7)
     drivers.push({
       name: "High CNS Load",
-      value: (intensity - 7) * 10,
+      value: (vitals.trainingIntensity - 7) * 10,
       color: "#eab308",
     });
-  if (hydration < 60)
+  if (vitals.hydrationLiters < 2.0)
     drivers.push({
       name: "Dehydration",
-      value: (60 - hydration) * 0.8,
+      value: (2.5 - vitals.hydrationLiters) * 20,
       color: "#3b82f6",
+    });
+  if (vitals.restingHeartRate > 75)
+    drivers.push({
+      name: "Elevated RHR",
+      value: (vitals.restingHeartRate - 70) * 1.5,
+      color: "#d946ef",
     });
 
   drivers.sort((a, b) => b.value - a.value);
@@ -126,205 +120,49 @@ function calculateInjuryDrivers(data: RecoveryData) {
   if (drivers.length === 0 || drivers[0].value < 5) {
     return [{ name: "Optimal Readiness", value: 100, color: "#22c55e" }];
   }
-
   return drivers.slice(0, 4);
 }
 
 // ---------------------------------------------------------------------------
-// Logic Helpers
-// ---------------------------------------------------------------------------
-function getRecoveryColor(score: number) {
-  if (score >= 70) return "clinical-safe";
-  if (score >= 40) return "clinical-warning";
-  return "clinical-danger";
-}
-
-function getRecoveryLabel(score: number) {
-  if (score >= 80) return "Excellent";
-  if (score >= 70) return "Good";
-  if (score >= 50) return "Fair";
-  if (score >= 30) return "Poor";
-  return "Critical";
-}
-
-function getCoachRecommendations(
-  data: RecoveryData,
-  recoveryScore: number,
-  injuryRiskStatus: string,
-): string[] {
-  const recs: string[] = [];
-
-  if ((data.sleepQuality || 0) <= 4)
-    recs.push(
-      "Your sleep quality is critically low. Prioritize 8+ hours of sleep tonight.",
-    );
-  else if ((data.sleepQuality || 0) <= 6)
-    recs.push(
-      "Sleep quality is below optimal. Try implementing a consistent sleep schedule.",
-    );
-  if ((data.stressLevel || 0) >= 8)
-    recs.push(
-      "Stress levels are very high. Consider reducing training volume by 30% today.",
-    );
-  if ((data.restingHeartRate || 0) > 80)
-    recs.push(
-      "Resting heart rate is elevated. Consider an active recovery day instead of high-intensity work.",
-    );
-  if ((data.hydrationLevel || 0) < 40)
-    recs.push(
-      "Hydration is critically low. Drink at least 500ml of water with electrolytes immediately.",
-    );
-  if ((data.trainingIntensity || 0) >= 9 && recoveryScore < 60)
-    recs.push(
-      "Training intensity is very high relative to your recovery state. Scale back to 60–70% effort today.",
-    );
-
-  if (injuryRiskStatus === "High Risk of Injury")
-    recs.push(
-      "⚠️ High Injury Risk Detected. Focus on technique-based drills at low intensity. Avoid heavy loads.",
-    );
-  else if (injuryRiskStatus === "Elevated Risk (Caution)")
-    recs.push(
-      "⚠️ Elevated Injury Risk. Warm up thoroughly and cap your training intensity at a moderate level.",
-    );
-  else if (recoveryScore >= 80)
-    recs.push(
-      "Recovery score is excellent. You are cleared for high-intensity training!",
-    );
-
-  if (recs.length === 0)
-    recs.push(
-      "All metrics are within healthy ranges. Listen to your body and adjust as needed.",
-    );
-
-  return recs;
-}
-
-const sliderConfigs = [
-  {
-    key: "age" as const,
-    label: "Age",
-    icon: User,
-    min: 18,
-    max: 90,
-    step: 1,
-    unit: "yrs",
-    description: "Athlete's current age",
-    format: (v: number) => `${v}`,
-  },
-  {
-    key: "bmi" as const,
-    label: "BMI",
-    icon: Scale,
-    min: 15,
-    max: 40,
-    step: 0.5,
-    unit: "kg/m²",
-    description: "Body Mass Index",
-    format: (v: number) => `${v}`,
-  },
-  {
-    key: "sleepQuality" as const,
-    label: "Sleep Quality",
-    icon: Moon,
-    min: 1,
-    max: 10,
-    step: 1,
-    unit: "/ 10",
-    description: "Rate your sleep quality from last night",
-    format: (v: number) => `${v}`,
-  },
-  {
-    key: "stressLevel" as const,
-    label: "Stress Level",
-    icon: Brain,
-    min: 1,
-    max: 10,
-    step: 1,
-    unit: "/ 10",
-    description: "Current perceived stress level",
-    format: (v: number) => `${v}`,
-  },
-  {
-    key: "restingHeartRate" as const,
-    label: "Resting Heart Rate",
-    icon: HeartPulse,
-    min: 40,
-    max: 100,
-    step: 1,
-    unit: "bpm",
-    description: "Measured upon waking",
-    format: (v: number) => `${v}`,
-  },
-  {
-    key: "hydrationLevel" as const,
-    label: "Hydration Level",
-    icon: Droplets,
-    min: 0,
-    max: 100,
-    step: 1,
-    unit: "%",
-    description: "Estimated daily hydration status",
-    format: (v: number) => `${v}`,
-  },
-  {
-    key: "trainingIntensity" as const,
-    label: "Training Intensity",
-    icon: Flame,
-    min: 1,
-    max: 10,
-    step: 1,
-    unit: "/ 10",
-    description: "Planned workout intensity",
-    format: (v: number) => `${v}`,
-  },
-];
-
-// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
-export function RecoveryTab({ data, onDataChange }: RecoveryTabProps) {
-  const [apiResult, setApiResult] = useState<ApiResult | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [fetchError, setFetchError] = useState<string | null>(null);
+export function RecoveryTab({ vitals, onVitalsChange }: RecoveryTabProps) {
+  const [apiResult, setApiResult] = useState<{
+    status: string;
+    injury_risk?: string;
+    injury_probability?: number;
+    actionable_insights?: string[];
+  } | null>(null);
 
-  const age = data.age ?? 25;
-  const bmi = data.bmi ?? 22.0;
-  const sleepQuality = data.sleepQuality ?? 7;
-  const stressLevel = data.stressLevel ?? 5;
-  const restingHeartRate = data.restingHeartRate ?? 60;
-  const hydrationLevel = data.hydrationLevel ?? 70;
-  const trainingIntensity = data.trainingIntensity ?? 5;
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     const fetchRecovery = async () => {
       setIsLoading(true);
-      setFetchError(null);
+      setError(null);
       try {
-        const apiUrl =
-          process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const apiUrl = "http://localhost:8000" || process.env.NEXT_PUBLIC_API_URL;
         const response = await fetch(`${apiUrl}/predict/recovery`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            age,
-            bmi,
-            sleep_quality: sleepQuality,
-            stress_level: stressLevel,
-            training_intensity: trainingIntensity,
+            age: vitals.age,
+            bmi: vitals.bmi,
+            sleep_hours: vitals.sleepHours,
+            stress_level: vitals.stressLevel,
+            hydration_liters: vitals.hydrationLiters,
+            daily_steps: vitals.dailySteps,
+            training_intensity: vitals.trainingIntensity,
+            heart_rate: vitals.restingHeartRate,
           }),
         });
         if (!response.ok) throw new Error(`Server error: ${response.status}`);
-        const result: ApiResult = await response.json();
+        const result = await response.json();
         if (!cancelled) setApiResult(result);
-      } catch (error) {
-        if (!cancelled) {
-          setFetchError(
-            "Could not reach the prediction server. Check your Python terminal.",
-          );
-          console.error("Failed to fetch recovery data:", error);
-        }
+      } catch (err) {
+        if (!cancelled) setError("Could not reach the prediction server.");
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -335,129 +173,176 @@ export function RecoveryTab({ data, onDataChange }: RecoveryTabProps) {
       cancelled = true;
       clearTimeout(timeoutId);
     };
-  }, [age, bmi, sleepQuality, stressLevel, trainingIntensity]);
+  }, [vitals]);
 
-  const recoveryScore = apiResult?.ai_recovery_score ?? 0;
-  const injuryStatus = apiResult?.injury_risk ?? null;
+  const injuryStatus = apiResult?.injury_risk || "Analyzing...";
   const injuryProb = apiResult?.injury_probability ?? 0;
+  const insights = apiResult?.actionable_insights || [];
   const hasResult = apiResult !== null;
 
   const isSafe = injuryStatus === "Safe to Train";
   const isWarning = injuryStatus === "Elevated Risk (Caution)";
   const isDanger = injuryStatus === "High Risk of Injury";
 
-  const recoveryColor = getRecoveryColor(recoveryScore);
-  const recoveryLabel = getRecoveryLabel(recoveryScore);
-
   // Memoized Chart Data
   const historyData = useMemo(
-    () => generateInjuryHistory(injuryProb, injuryStatus ?? "Safe to Train"),
+    () => generateInjuryHistory(injuryProb, injuryStatus),
     [injuryProb, injuryStatus],
   );
-  const riskDrivers = useMemo(
-    () =>
-      calculateInjuryDrivers({
-        ...data,
-        sleepQuality,
-        stressLevel,
-        trainingIntensity,
-        hydrationLevel,
-      }),
-    [data, sleepQuality, stressLevel, trainingIntensity, hydrationLevel],
-  );
+  const riskDrivers = useMemo(() => calculateInjuryDrivers(vitals), [vitals]);
 
-  const recommendations = useMemo(
-    () =>
-      getCoachRecommendations(
-        {
-          ...data,
-          age,
-          bmi,
-          sleepQuality,
-          stressLevel,
-          restingHeartRate,
-          hydrationLevel,
-          trainingIntensity,
-        },
-        recoveryScore,
-        injuryStatus ?? "",
-      ),
-    [
-      data,
-      age,
-      bmi,
-      sleepQuality,
-      stressLevel,
-      restingHeartRate,
-      hydrationLevel,
-      trainingIntensity,
-      recoveryScore,
-      injuryStatus,
-    ],
-  );
-
+  // SVG Gauge Calculations
   const circumference = 2 * Math.PI * 70;
-  const strokeDashoffset =
-    circumference - (recoveryScore / 100) * circumference;
-  const colorClass =
+  const strokeDashoffset = circumference - (injuryProb / 100) * circumference;
+  const gaugeColorClass = isSafe
+    ? "stroke-green-500 text-green-600"
+    : isWarning
+      ? "stroke-yellow-500 text-yellow-600"
+      : "stroke-red-500 text-red-600";
+  const cardColorClass = isSafe
+    ? "border-green-200 bg-green-50/30"
+    : isWarning
+      ? "border-yellow-300 bg-yellow-50/30"
+      : "border-red-300 bg-red-50/30";
+
+  // Slider Configurations
+  const biometricSliders = [
     {
-      "clinical-safe": "stroke-clinical-safe text-clinical-safe",
-      "clinical-warning": "stroke-clinical-warning text-clinical-warning",
-      "clinical-danger": "stroke-clinical-danger text-clinical-danger",
-    }[recoveryColor] || "stroke-muted text-muted-foreground";
+      key: "age" as const,
+      label: "Age",
+      icon: User,
+      min: 18,
+      max: 90,
+      unit: "yrs",
+      step: 1,
+    },
+    {
+      key: "bmi" as const,
+      label: "BMI",
+      icon: Scale,
+      min: 15,
+      max: 40,
+      unit: "kg/m²",
+      step: 0.5,
+    },
+    {
+      key: "restingHeartRate" as const,
+      label: "Resting Heart Rate",
+      icon: HeartPulse,
+      min: 40,
+      max: 100,
+      unit: "bpm",
+      step: 1,
+    },
+  ];
+
+  const trainingSliders = [
+    {
+      key: "trainingIntensity" as const,
+      label: "Planned Intensity",
+      icon: Flame,
+      min: 1,
+      max: 10,
+      unit: "/ 10",
+      step: 1,
+    },
+    {
+      key: "sleepHours" as const,
+      label: "Sleep Duration",
+      icon: Moon,
+      min: 3,
+      max: 12,
+      unit: "hrs",
+      step: 0.5,
+    },
+    {
+      key: "hydrationLiters" as const,
+      label: "Daily Hydration",
+      icon: Droplets,
+      min: 0.5,
+      max: 5.0,
+      unit: "L",
+      step: 0.1,
+    },
+    {
+      key: "stressLevel" as const,
+      label: "Systemic Stress",
+      icon: Brain,
+      min: 1,
+      max: 10,
+      unit: "/ 10",
+      step: 1,
+    },
+  ];
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-      {/* ── Left: inputs (5 columns) ── */}
-      <Card className="lg:col-span-5 h-fit">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-card-foreground">
-            <Watch className="h-5 w-5 text-blue-600" />
-            Daily Wearable Sync
-          </CardTitle>
-          <CardDescription>
-            Sync your wearable device metrics for AI-powered analysis
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-5">
-          {sliderConfigs.map(
-            ({
-              key,
-              label,
-              icon: Icon,
-              min,
-              max,
-              step,
-              unit,
-              description,
-              format,
-            }) => {
-              const value =
-                data[key as keyof RecoveryData] ??
-                {
-                  age,
-                  bmi,
-                  sleepQuality,
-                  stressLevel,
-                  restingHeartRate,
-                  hydrationLevel,
-                  trainingIntensity,
-                }[key];
-              return (
+      {/* ── LEFT COLUMN: Inputs (5 cols) ── */}
+      <div className="lg:col-span-5 flex flex-col gap-6">
+        {/* Card 1: Biometrics & Wearable Data */}
+        <Card className="h-fit">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Watch className="h-4 w-4 text-blue-600" /> Biometrics & Wearables
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Baseline stats & morning readiness data
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 gap-5">
+            {biometricSliders.map(
+              ({ key, label, icon: Icon, min, max, unit, step }) => (
                 <div key={key} className="flex flex-col gap-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex flex-col gap-0.5">
-                      <label className="flex items-center gap-2 text-sm font-medium text-card-foreground">
-                        <Icon className="h-4 w-4 text-slate-500" />
-                        {label}
-                      </label>
-                      <span className="text-xs text-slate-500 pl-6">
-                        {description}
-                      </span>
-                    </div>
-                    <span className="text-sm font-mono font-semibold text-blue-600 tabular-nums">
-                      {format(value)}{" "}
-                      <span className="text-xs text-slate-400 font-normal">
+                  <div className="flex items-center justify-between text-sm">
+                    <label className="font-medium flex items-center gap-2 text-slate-700">
+                      <Icon className="h-4 w-4 text-slate-400" /> {label}
+                    </label>
+                    <span className="text-blue-600 font-bold">
+                      {vitals[key] % 1 !== 0
+                        ? vitals[key].toFixed(1)
+                        : vitals[key]}{" "}
+                      <span className="text-slate-400 font-normal">{unit}</span>
+                    </span>
+                  </div>
+                  <Slider
+                    min={min}
+                    max={max}
+                    step={step}
+                    value={[vitals[key]]}
+                    onValueChange={([val]) =>
+                      onVitalsChange({ ...vitals, [key]: val })
+                    }
+                  />
+                </div>
+              ),
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Card 2: Lifestyle & Training */}
+        <Card className="h-fit border-indigo-100 bg-indigo-50/30">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-base text-indigo-900">
+              <Activity className="h-4 w-4 text-indigo-600" /> Lifestyle &
+              Training
+            </CardTitle>
+            <CardDescription className="text-xs text-indigo-700/70">
+              Adjust behavior to test injury thresholds
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 gap-5">
+            {trainingSliders.map(
+              ({ key, label, icon: Icon, min, max, unit, step }) => (
+                <div key={key} className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <label className="font-medium flex items-center gap-2 text-indigo-900">
+                      <Icon className="h-4 w-4 text-indigo-400" /> {label}
+                    </label>
+                    <span className="text-indigo-600 font-bold">
+                      {vitals[key] % 1 !== 0
+                        ? vitals[key].toFixed(1)
+                        : vitals[key]}{" "}
+                      <span className="text-indigo-400 font-normal">
                         {unit}
                       </span>
                     </span>
@@ -466,35 +351,28 @@ export function RecoveryTab({ data, onDataChange }: RecoveryTabProps) {
                     min={min}
                     max={max}
                     step={step}
-                    value={[value]}
+                    value={[vitals[key]]}
                     onValueChange={([val]) =>
-                      onDataChange({ ...data, [key]: val })
+                      onVitalsChange({ ...vitals, [key]: val })
                     }
                   />
                 </div>
-              );
-            },
-          )}
+              ),
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
-          <div className="mt-2 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-            <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-xs text-slate-500">
-              Wearable data synced &mdash; Last updated: Today
-            </span>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ── Right: outputs (7 columns) ── */}
+      {/* ── RIGHT COLUMN: Outputs (7 cols) ── */}
       <div className="lg:col-span-7 flex flex-col gap-6">
         {/* Top Row: Gauge & Assessment */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Recovery Score Gauge */}
+          {/* Injury Probability Gauge */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-card-foreground">
-                <Sparkles className="h-5 w-5 text-blue-600" />
-                AI Recovery Score
+              <CardTitle className="flex items-center gap-2 text-card-foreground text-sm uppercase tracking-wider text-slate-500">
+                <Activity className="h-4 w-4 text-blue-600" /> Injury
+                Probability
                 {isLoading && (
                   <Loader2 className="ml-auto h-4 w-4 animate-spin text-slate-400" />
                 )}
@@ -525,58 +403,35 @@ export function RecoveryTab({ data, onDataChange }: RecoveryTabProps) {
                     strokeLinecap="round"
                     strokeDasharray={circumference}
                     strokeDashoffset={strokeDashoffset}
-                    className={`transition-all duration-700 ease-out ${colorClass.split(" ")[0]}`}
+                    className={`transition-all duration-700 ease-out ${gaugeColorClass.split(" ")[0]}`}
                   />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <span className="text-4xl font-bold font-mono text-card-foreground">
-                    {hasResult ? `${Math.round(recoveryScore)}%` : "--"}
+                    {hasResult ? `${Math.round(injuryProb)}%` : "--"}
                   </span>
                   <span
-                    className={`text-sm font-semibold uppercase tracking-wider mt-1 ${colorClass.split(" ")[1]}`}
+                    className={`text-xs font-bold uppercase tracking-wider mt-1 ${gaugeColorClass.split(" ")[1]}`}
                   >
-                    {hasResult ? recoveryLabel : "Analyzing…"}
+                    {hasResult ? "RISK SCORE" : "Analyzing…"}
                   </span>
                 </div>
               </div>
-              <p className="text-xs text-slate-500 text-center px-4 mt-2">
-                Measures central nervous system readiness and accumulated
-                fatigue.
-              </p>
             </CardContent>
           </Card>
 
-          {/* Injury Risk Assessment */}
+          {/* Status Alert Card */}
           <Card
-            className={`border-2 transition-colors duration-500 flex flex-col ${
-              !hasResult
-                ? "border-slate-200"
-                : isSafe
-                  ? "border-green-200 bg-green-50/30"
-                  : isWarning
-                    ? "border-yellow-300 bg-yellow-50/30"
-                    : "border-red-300 bg-red-50/30"
-            }`}
+            className={`border-2 transition-colors duration-500 flex flex-col ${cardColorClass}`}
           >
-            <CardHeader className="pb-0 pt-5 px-6">
-              <CardTitle className="text-sm text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                <Activity className="h-4 w-4" />
-                Injury Probability
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4 py-4 px-6 flex-1 justify-center">
+            <CardContent className="flex flex-col gap-4 py-4 px-6 flex-1 justify-center relative">
+              {error && (
+                <p className="text-red-500 text-sm absolute top-4 left-4">
+                  {error}
+                </p>
+              )}
               <div className="flex items-center gap-4">
-                <div
-                  className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-xl transition-colors duration-500 ${
-                    !hasResult
-                      ? "bg-slate-100"
-                      : isSafe
-                        ? "bg-green-100"
-                        : isWarning
-                          ? "bg-yellow-100"
-                          : "bg-red-100"
-                  }`}
-                >
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm">
                   {!hasResult ? (
                     <Loader2 className="h-7 w-7 text-slate-400 animate-spin" />
                   ) : isSafe ? (
@@ -588,35 +443,18 @@ export function RecoveryTab({ data, onDataChange }: RecoveryTabProps) {
                   )}
                 </div>
                 <div className="flex flex-col gap-0.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-slate-500">
-                      AI Forecast
-                    </span>
-                    {hasResult && (
-                      <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider">
-                        {injuryProb}% RISK
-                      </span>
-                    )}
-                  </div>
+                  <span className="text-sm font-medium text-slate-600">
+                    AI Assessment
+                  </span>
                   <span
-                    className={`text-xl font-bold transition-colors duration-500 ${
-                      !hasResult
-                        ? "text-slate-400"
-                        : isSafe
-                          ? "text-green-700"
-                          : isWarning
-                            ? "text-yellow-700"
-                            : "text-red-700"
-                    }`}
+                    className={`text-xl font-bold transition-colors duration-500 ${isSafe ? "text-green-700" : isWarning ? "text-yellow-700" : "text-red-700"}`}
                   >
-                    {injuryStatus ?? "Analyzing…"}
+                    {injuryStatus}
                   </span>
                 </div>
               </div>
-
-              <p className="text-slate-600 font-medium text-xs leading-relaxed mt-2 bg-white/60 p-3 rounded border border-slate-100">
-                {isSafe &&
-                  "Recovery and planned intensity are perfectly balanced."}
+              <p className="text-slate-700 font-medium text-sm leading-relaxed mt-2 bg-white/60 p-3 rounded border border-slate-100">
+                {isSafe && "Recovery and planned intensity are balanced."}
                 {isWarning &&
                   "Intensity is pushing current recovery limits. Early warning signs detected."}
                 {isDanger &&
@@ -627,14 +465,40 @@ export function RecoveryTab({ data, onDataChange }: RecoveryTabProps) {
           </Card>
         </div>
 
-        {/* Middle Row: Analytics / Charts */}
+        {/* Actionable Insights List */}
+        <Card className="bg-slate-900 border-none text-white">
+          <CardHeader className="pb-3 pt-5">
+            <CardTitle className="text-sm uppercase tracking-wider text-slate-400 flex items-center gap-2">
+              <Lightbulb className="h-4 w-4 text-yellow-500" /> Engine Insights
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {insights.length > 0 ? (
+              <ul className="space-y-3">
+                {insights.map((insight, i) => (
+                  <li
+                    key={i}
+                    className="text-sm leading-relaxed text-slate-200 flex items-start gap-3"
+                  >
+                    <span className="mt-1 flex h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
+                    {insight}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-slate-500">
+                Adjust clinical or lifestyle sliders to generate insights.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Charts Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* 2A. Time Series Trajectory */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                <LineChartIcon className="h-4 w-4" />
-                6-Month Risk Trend
+                <LineChartIcon className="h-4 w-4" /> 6-Month Risk Trend
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-4 h-[200px]">
@@ -678,12 +542,10 @@ export function RecoveryTab({ data, onDataChange }: RecoveryTabProps) {
             </CardContent>
           </Card>
 
-          {/* 2B. XAI Risk Drivers */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                <BarChart3 className="h-4 w-4" />
-                Fatigue Drivers (XAI)
+                <BarChart3 className="h-4 w-4" /> Fatigue Drivers (XAI)
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-4 h-[200px]">
@@ -708,15 +570,8 @@ export function RecoveryTab({ data, onDataChange }: RecoveryTabProps) {
                     width={110}
                   />
                   <Tooltip
-                    contentStyle={{
-                      borderRadius: "8px",
-                      border: "none",
-                      boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-                    }}
-                    formatter={(value: any) => [
-                      `${value}%`,
-                      "Injury Probability",
-                    ]}
+                    cursor={{ fill: "#f1f5f9" }}
+                    contentStyle={{ borderRadius: "8px" }}
                   />
                   <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
                     {riskDrivers.map((entry, index) => (
@@ -728,30 +583,6 @@ export function RecoveryTab({ data, onDataChange }: RecoveryTabProps) {
             </CardContent>
           </Card>
         </div>
-
-        {/* Coach Recommendations */}
-        <Card className="bg-slate-50 border-slate-200">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2 mb-3">
-              <Dumbbell className="h-5 w-5 text-indigo-600" />
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                AI Coach Recommendations
-              </span>
-            </div>
-            <ul className="text-sm text-slate-700 font-medium leading-relaxed space-y-2 pl-2">
-              {hasResult ? (
-                recommendations.map((rec, i) => (
-                  <li key={i} className="flex gap-2 items-start">
-                    <span className="text-indigo-400 mt-0.5">•</span>
-                    {rec}
-                  </li>
-                ))
-              ) : (
-                <li>Waiting for metrics…</li>
-              )}
-            </ul>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

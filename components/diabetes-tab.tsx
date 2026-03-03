@@ -15,8 +15,6 @@ import {
   Footprints,
   Droplets,
   Activity,
-  Loader2,
-  ShieldAlert,
   User,
   Scale,
   Baby,
@@ -25,6 +23,10 @@ import {
   Dna,
   LineChart as LineChartIcon,
   BarChart3,
+  Moon,
+  GlassWater,
+  Brain,
+  Lightbulb,
 } from "lucide-react";
 import {
   LineChart,
@@ -39,120 +41,101 @@ import {
   Cell,
 } from "recharts";
 
+// 1. Updated Props to include universal lifestyle variables
 interface MetabolicTabProps {
   vitals: {
     age: number;
-    bmi: number;
-    glucose: number;
-    insulin: number;
     pregnancies: number;
+    glucose: number;
     bloodPressure: number;
     skinThickness: number;
+    insulin: number;
     diabetesPedigree: number;
+    // Universal Lifestyle Variables
+    bmi: number;
     dailySteps: number;
+    sleepHours: number;
+    hydrationLiters: number;
+    stressLevel: number;
   };
   onVitalsChange: (vitals: MetabolicTabProps["vitals"]) => void;
 }
 
-// ---------------------------------------------------------------------------
-// Helpers for the new Charts
-// ---------------------------------------------------------------------------
-
-// 1. Generate dynamic 6-month history based on the current score
+// Helpers
 function generateHistory(currentScore: number, category: string) {
   const months = ["Sep", "Oct", "Nov", "Dec", "Jan", "Feb"];
   let trend = 0;
-
-  if (category.includes("Critical"))
-    trend = -15; // They've been getting worse fast
+  if (category.includes("Critical")) trend = -15;
   else if (category.includes("Moderate")) trend = -8;
   else if (category.includes("Elevated")) trend = -4;
-  else trend = 0; // Healthy stays relatively flat
 
   return months.map((month, index) => {
-    // Reverse engineer past scores based on the trend, adding slight realistic noise
     const noise = Math.random() * 4 - 2;
     const historicalScore = currentScore + trend * (5 - index) + noise;
     return {
       month,
-      score: Math.max(5, Math.min(99, Math.round(historicalScore))), // clamp 5-99
+      score: Math.max(5, Math.min(99, Math.round(historicalScore))),
     };
   });
 }
 
-// 2. Calculate "Top Risk Drivers" by comparing vitals to optimal clinical baselines
 function calculateRiskDrivers(vitals: MetabolicTabProps["vitals"]) {
   const drivers = [];
-
-  // Calculate deviation from "optimal" to show the AI's logic
-  if (vitals.glucose > 100)
+  if (vitals.glucose >= 100)
     drivers.push({
-      name: "Elevated Glucose",
-      value: (vitals.glucose - 100) * 1.5,
-      color: "#ef4444",
+      name: vitals.glucose >= 126 ? "Diabetic Glucose" : "Elevated Glucose",
+      value: (vitals.glucose - 99) * 2,
+      color: vitals.glucose >= 126 ? "#dc2626" : "#f97316",
     });
-  if (vitals.bmi > 25)
+  if (vitals.bmi >= 25)
     drivers.push({
-      name: "High BMI",
-      value: (vitals.bmi - 25) * 3,
-      color: "#f97316",
+      name: vitals.bmi >= 30 ? "Obesity" : "High BMI",
+      value: (vitals.bmi - 24) * 4,
+      color: vitals.bmi >= 30 ? "#dc2626" : "#eab308",
     });
-  if (vitals.dailySteps < 7000)
+  if (vitals.bloodPressure >= 80)
     drivers.push({
-      name: "Sedentary Lifestyle",
-      value: (7000 - vitals.dailySteps) / 100,
-      color: "#eab308",
-    });
-  if (vitals.bloodPressure > 80)
-    drivers.push({
-      name: "Blood Pressure",
-      value: (vitals.bloodPressure - 80) * 1.2,
+      name: vitals.bloodPressure >= 90 ? "Hypertension" : "Elevated BP",
+      value: (vitals.bloodPressure - 79) * 1.5,
       color: "#3b82f6",
     });
-  if (vitals.insulin > 20)
+  if (vitals.dailySteps < 6000)
     drivers.push({
-      name: "Insulin Resistance",
-      value: (vitals.insulin - 20) * 0.8,
+      name: "Sedentary Penalty",
+      value: (6000 - vitals.dailySteps) / 60,
       color: "#8b5cf6",
     });
+  if (vitals.sleepHours < 6)
+    drivers.push({
+      name: "Sleep Deprivation",
+      value: (7 - vitals.sleepHours) * 10,
+      color: "#64748b",
+    });
 
-  // Sort to find the biggest problems
   drivers.sort((a, b) => b.value - a.value);
-
-  // If healthy, show a "Good" placeholder
-  if (drivers.length === 0 || drivers[0].value < 5) {
-    return [{ name: "All Markers Optimal", value: 100, color: "#22c55e" }];
-  }
-
-  return drivers.slice(0, 4); // Return top 4 drivers
+  if (drivers.length === 0)
+    return [{ name: "Optimal Health", value: 100, color: "#22c55e" }];
+  return drivers.slice(0, 4);
 }
-
-// ---------------------------------------------------------------------------
-// Main Component
-// ---------------------------------------------------------------------------
 
 export function DiabetesTab({ vitals, onVitalsChange }: MetabolicTabProps) {
   const [apiResult, setApiResult] = useState<{
     status: string;
     predicted_category?: string;
-    confidence?: number;
-    risk_score?: number;
+    vitalsguard_score?: number;
+    actionable_insights?: string[];
   } | null>(null);
 
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
-
     const fetchPrediction = async () => {
       try {
-        setIsLoading(true);
         setError(null);
-
         const apiUrl =
-          process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
+          // process.env.NEXT_PUBLIC_API_URL ||
+          "http://localhost:8000";
         const response = await fetch(`${apiUrl}/predict/metabolic`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -162,40 +145,39 @@ export function DiabetesTab({ vitals, onVitalsChange }: MetabolicTabProps) {
             BloodPressure: vitals.bloodPressure,
             SkinThickness: vitals.skinThickness,
             Insulin: vitals.insulin,
-            BMI: vitals.bmi,
             DiabetesPedigreeFunction: vitals.diabetesPedigree,
             Age: vitals.age,
-            TotalSteps: vitals.dailySteps,
+            // Mapping universal frontend vars to backend schema
+            bmi: vitals.bmi,
+            daily_steps: vitals.dailySteps,
+            sleep_hours: vitals.sleepHours,
+            hydration_liters: vitals.hydrationLiters,
+            stress_level: vitals.stressLevel,
           }),
           signal: controller.signal,
         });
 
         if (!response.ok) throw new Error("API validation failed.");
-
         const data = await response.json();
         setApiResult(data);
       } catch (err: unknown) {
         if (err instanceof Error && err.name !== "AbortError") {
           setError("Assessment engine unreachable.");
         }
-      } finally {
-        setIsLoading(false);
       }
     };
 
-    const timeout = setTimeout(fetchPrediction, 600);
+    const timeout = setTimeout(fetchPrediction, 500);
     return () => {
       clearTimeout(timeout);
       controller.abort();
     };
   }, [vitals]);
 
-  // Derived Logic
-  const category =
-    apiResult?.predicted_category || (apiResult ? "Healthy" : "Analyzing...");
-  const confidenceScore = apiResult?.confidence || apiResult?.risk_score || 0;
+  const category = apiResult?.predicted_category || "Analyzing...";
+  const confidenceScore = apiResult?.vitalsguard_score || 0;
+  const insights = apiResult?.actionable_insights || [];
 
-  // Memoize the chart data so it doesn't jitter needlessly
   const historyData = useMemo(
     () => generateHistory(confidenceScore, category),
     [confidenceScore, category],
@@ -219,7 +201,8 @@ export function DiabetesTab({ vitals, onVitalsChange }: MetabolicTabProps) {
     badgeColorClass = "bg-red-600 text-white";
   }
 
-  const sliderConfigs = [
+  // Component Configuration Arrays
+  const clinicalSliders = [
     {
       key: "age" as const,
       label: "Age",
@@ -229,29 +212,12 @@ export function DiabetesTab({ vitals, onVitalsChange }: MetabolicTabProps) {
       unit: "yrs",
     },
     {
-      key: "bmi" as const,
-      label: "BMI",
-      icon: Scale,
-      min: 15,
-      max: 50,
-      unit: "kg/m²",
-      step: 0.1,
-    },
-    {
       key: "glucose" as const,
-      label: "Glucose",
+      label: "Fasting Glucose",
       icon: Droplets,
       min: 40,
       max: 250,
       unit: "mg/dL",
-    },
-    {
-      key: "insulin" as const,
-      label: "Insulin",
-      icon: Activity,
-      min: 0,
-      max: 300,
-      unit: "µIU/mL",
     },
     {
       key: "bloodPressure" as const,
@@ -262,29 +228,33 @@ export function DiabetesTab({ vitals, onVitalsChange }: MetabolicTabProps) {
       unit: "mmHg",
     },
     {
-      key: "skinThickness" as const,
-      label: "Skin Thickness",
-      icon: Layers,
+      key: "insulin" as const,
+      label: "Insulin",
+      icon: Activity,
       min: 0,
-      max: 99,
-      unit: "mm",
-    },
-    {
-      key: "pregnancies" as const,
-      label: "Pregnancies",
-      icon: Baby,
-      min: 0,
-      max: 15,
-      unit: "",
+      max: 300,
+      unit: "µIU/mL",
     },
     {
       key: "diabetesPedigree" as const,
-      label: "Pedigree",
+      label: "Genetics (Pedigree)",
       icon: Dna,
       min: 0.0,
       max: 2.5,
       unit: "",
       step: 0.01,
+    },
+  ];
+
+  const lifestyleSliders = [
+    {
+      key: "bmi" as const,
+      label: "BMI",
+      icon: Scale,
+      min: 15,
+      max: 50,
+      unit: "kg/m²",
+      step: 0.1,
     },
     {
       key: "dailySteps" as const,
@@ -295,59 +265,126 @@ export function DiabetesTab({ vitals, onVitalsChange }: MetabolicTabProps) {
       unit: "steps",
       step: 100,
     },
+    {
+      key: "sleepHours" as const,
+      label: "Sleep Duration",
+      icon: Moon,
+      min: 3,
+      max: 12,
+      unit: "hrs",
+      step: 0.5,
+    },
+    {
+      key: "hydrationLiters" as const,
+      label: "Daily Hydration",
+      icon: GlassWater,
+      min: 0.5,
+      max: 5.0,
+      unit: "L",
+      step: 0.1,
+    },
+    {
+      key: "stressLevel" as const,
+      label: "Stress Level",
+      icon: Brain,
+      min: 1,
+      max: 10,
+      unit: "/ 10",
+      step: 1,
+    },
   ];
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-      {/* LEFT COLUMN: Inputs (Takes up 5 columns on large screens) */}
-      <Card className="lg:col-span-5 h-fit">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-card-foreground">
-            <Heart className="h-5 w-5 text-blue-600" />
-            Clinical Profile
-          </CardTitle>
-          <CardDescription>
-            Adjust markers to view dynamic risk stratification
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 gap-5">
-          {sliderConfigs.map(
-            ({ key, label, icon: Icon, min, max, unit, step }) => (
-              <div key={key} className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                    <Icon className="h-4 w-4 text-slate-400" />
-                    {label}
-                  </label>
-                  <span className="text-sm font-mono font-semibold text-blue-600">
-                    {vitals[key] !== undefined
-                      ? vitals[key] % 1 !== 0
+      {/* LEFT COLUMN: Segmented Inputs */}
+      <div className="lg:col-span-5 flex flex-col gap-6">
+        {/* Card 1: Clinical Biomarkers */}
+        <Card className="h-fit">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Heart className="h-4 w-4 text-blue-600" /> Clinical Biomarkers
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Immutable factors & medical lab results
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 gap-4">
+            {clinicalSliders.map(
+              ({ key, label, icon: Icon, min, max, unit, step }) => (
+                <div key={key} className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 text-xs font-medium text-slate-700">
+                      <Icon className="h-3 w-3 text-slate-400" /> {label}
+                    </label>
+                    <span className="text-xs font-mono font-semibold text-blue-600">
+                      {vitals[key] % 1 !== 0
                         ? vitals[key].toFixed(2)
-                        : vitals[key]
-                      : "0"}{" "}
-                    <span className="text-xs text-slate-400 font-normal">
-                      {unit}
+                        : vitals[key]}{" "}
+                      <span className="font-normal text-slate-400">{unit}</span>
                     </span>
-                  </span>
+                  </div>
+                  <Slider
+                    min={min}
+                    max={max}
+                    step={step || 1}
+                    value={[vitals[key]]}
+                    onValueChange={([val]) =>
+                      onVitalsChange({ ...vitals, [key]: val })
+                    }
+                  />
                 </div>
-                <Slider
-                  min={min}
-                  max={max}
-                  step={step || 1}
-                  value={[vitals[key] || 0]}
-                  onValueChange={([val]) =>
-                    onVitalsChange({ ...vitals, [key]: val })
-                  }
-                />
-              </div>
-            ),
-          )}
-        </CardContent>
-      </Card>
+              ),
+            )}
+          </CardContent>
+        </Card>
 
-      {/* RIGHT COLUMN: Outputs & Analytics (Takes up 7 columns) */}
+        {/* Card 2: Lifestyle Modifiers */}
+        <Card className="h-fit border-indigo-100 bg-indigo-50/30">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-base text-indigo-900">
+              <Activity className="h-4 w-4 text-indigo-600" /> Lifestyle
+              Modifiers
+            </CardTitle>
+            <CardDescription className="text-xs text-indigo-700/70">
+              Highly actionable behavioral metrics
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 gap-4">
+            {lifestyleSliders.map(
+              ({ key, label, icon: Icon, min, max, unit, step }) => (
+                <div key={key} className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 text-xs font-medium text-indigo-900">
+                      <Icon className="h-3 w-3 text-indigo-400" /> {label}
+                    </label>
+                    <span className="text-xs font-mono font-semibold text-indigo-600">
+                      {vitals[key] % 1 !== 0
+                        ? vitals[key].toFixed(1)
+                        : vitals[key]}{" "}
+                      <span className="font-normal text-indigo-400">
+                        {unit}
+                      </span>
+                    </span>
+                  </div>
+                  <Slider
+                    min={min}
+                    max={max}
+                    step={step || 1}
+                    value={[vitals[key]]}
+                    onValueChange={([val]) =>
+                      onVitalsChange({ ...vitals, [key]: val })
+                    }
+                  />
+                </div>
+              ),
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* RIGHT COLUMN: Outputs & Analytics */}
       <div className="lg:col-span-7 flex flex-col gap-6">
-        {/* 1. Integrated Risk Score Card */}
+        {/* Risk Score Card */}
         <Card
           className={`border-2 transition-colors duration-500 ${riskColorClass}`}
         >
@@ -371,11 +408,10 @@ export function DiabetesTab({ vitals, onVitalsChange }: MetabolicTabProps) {
                     </span>
                   </div>
                 </div>
-
                 <div className="h-3 w-full overflow-hidden rounded-full bg-slate-200/50">
                   <div
                     className={`h-full transition-all duration-1000 ease-out ${badgeColorClass}`}
-                    style={{ width: apiResult ? `${confidenceScore}%` : "0%" }}
+                    style={{ width: `${confidenceScore}%` }}
                   />
                 </div>
               </>
@@ -383,14 +419,40 @@ export function DiabetesTab({ vitals, onVitalsChange }: MetabolicTabProps) {
           </CardContent>
         </Card>
 
-        {/* 2. Side-by-Side Analytics Row */}
+        {/* Actionable Insights List */}
+        <Card className="bg-slate-900 border-none text-white">
+          <CardHeader className="pb-3 pt-5">
+            <CardTitle className="text-sm uppercase tracking-wider text-slate-400 flex items-center gap-2">
+              <Lightbulb className="h-4 w-4 text-yellow-500" /> Engine Insights
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {insights.length > 0 ? (
+              <ul className="space-y-3">
+                {insights.map((insight, i) => (
+                  <li
+                    key={i}
+                    className="text-sm leading-relaxed text-slate-200 flex items-start gap-3"
+                  >
+                    <span className="mt-1 flex h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
+                    {insight}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-slate-500">
+                Adjust clinical or lifestyle sliders to generate insights.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Charts Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* 2A. Time Series Trajectory */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                <LineChartIcon className="h-4 w-4" />
-                6-Month Trajectory
+                <LineChartIcon className="h-4 w-4" /> Trajectory
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-4 h-[200px]">
@@ -435,12 +497,10 @@ export function DiabetesTab({ vitals, onVitalsChange }: MetabolicTabProps) {
             </CardContent>
           </Card>
 
-          {/* 2B. XAI Risk Drivers */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                <BarChart3 className="h-4 w-4" />
-                Top Risk Drivers (XAI)
+                <BarChart3 className="h-4 w-4" /> Risk Drivers
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-4 h-[200px]">
@@ -478,27 +538,6 @@ export function DiabetesTab({ vitals, onVitalsChange }: MetabolicTabProps) {
             </CardContent>
           </Card>
         </div>
-
-        {/* 3. Clinical Interpretation */}
-        <Card className="bg-slate-50 border-slate-200">
-          <CardContent className="pt-6">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 block">
-              Clinical Interpretation
-            </span>
-            <p className="text-slate-700 font-medium text-sm leading-relaxed">
-              {category === "Healthy" &&
-                "The patient's clinical vitals and daily behavioral habits are well within optimal physiological ranges. No metabolic distress detected."}
-              {category === "Elevated (Behavioral)" &&
-                "Clinical vitals are stable, but behavioral patterns (low steps, high sedentary time) are creating a trajectory toward metabolic syndrome. Immediate lifestyle intervention is recommended."}
-              {category === "Moderate (Medical)" &&
-                "Behavioral factors aside, the patient's actual clinical markers have crossed the threshold into pre-diabetic or hypertensive territory. Pharmacological review required."}
-              {category === "Critical Risk" &&
-                "A dangerous compounding effect: the patient has severe clinical abnormalities combined with extremely poor behavioral habits, signaling acute metabolic danger."}
-              {!apiResult &&
-                "Adjust the sliders to see how the model interprets different combinations of clinical and behavioral data."}
-            </p>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
