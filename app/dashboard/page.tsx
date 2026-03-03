@@ -526,12 +526,12 @@ export default function Page() {
           >
             <TabsList className="mb-6 h-11 w-full max-w-3xl bg-white border shadow-sm">
               <TabsTrigger
-                value="master"
+                value="recovery"
                 className="gap-1.5 px-4 data-[state=active]:bg-slate-100"
               >
-                <Users className="h-4 w-4" />
-                <span className="hidden sm:inline">Master Overview</span>
-                <span className="sm:hidden">Overview</span>
+                <Dumbbell className="h-4 w-4" />
+                <span className="hidden sm:inline">Athletic Injury</span>
+                <span className="sm:hidden">Injury</span>
               </TabsTrigger>
               <TabsTrigger
                 value="diabetes"
@@ -549,13 +549,14 @@ export default function Page() {
                 <span className="hidden sm:inline">Stroke Assessor</span>
                 <span className="sm:hidden">Stroke</span>
               </TabsTrigger>
+
               <TabsTrigger
-                value="recovery"
+                value="master"
                 className="gap-1.5 px-4 data-[state=active]:bg-slate-100"
               >
-                <Dumbbell className="h-4 w-4" />
-                <span className="hidden sm:inline">Athletic Injury</span>
-                <span className="sm:hidden">Injury</span>
+                <Users className="h-4 w-4" />
+                <span className="hidden sm:inline">Master Overview</span>
+                <span className="sm:hidden">Overview</span>
               </TabsTrigger>
             </TabsList>
             <TabsContent value="recovery" className="mt-0 outline-none">
