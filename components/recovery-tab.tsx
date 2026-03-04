@@ -131,7 +131,7 @@ export function RecoveryTab({ vitals, onVitalsChange }: RecoveryTabProps) {
     status: string;
     injury_risk?: string;
     injury_probability?: number;
-    actionable_insights?: any[];
+    actionable_insights?: { text: string; target: string | null; value: any }[];
   } | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);

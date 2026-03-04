@@ -144,7 +144,7 @@ export function StrokeTab({ vitals, onVitalsChange }: StrokeTabProps) {
     status: string;
     vitalsguard_score?: number;
     risk_level?: string;
-    actionable_insights?: string[];
+    actionable_insights?: { text: string; target: string | null; value: any }[];
   } | null>(null);
 
   const [loading, setLoading] = useState(false);
