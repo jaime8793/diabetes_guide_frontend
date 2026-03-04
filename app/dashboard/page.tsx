@@ -358,7 +358,7 @@ const ATHLETIC_SCENARIOS = [
     color: "text-blue-600",
     bgColor: "bg-blue-100",
     description:
-      "Under-recovered from a bad night's sleep, but smartly lowered planned intensity to 3/10. Model clears them to train but still has a moderate probability.",
+      "Under-recovered from a bad night's sleep, but smartly lowered workout intensity to 3/10. Model clears them to train but still has a moderate probability.",
     data: {
       age: 35,
       bmi: 25.0,

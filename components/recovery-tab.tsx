@@ -68,7 +68,7 @@ function generateInjuryHistory(currentProb: number, status: string) {
   let trend = 0;
 
   if (status === "High Risk of Injury") trend = -12;
-  else if (status === "Elevated Risk (Caution)") trend = -5;
+  else if (status === "Elevated Risk (Workout with Caution)") trend = -5;
   else trend = 0;
 
   return months.map((month, index) => {
