@@ -239,7 +239,7 @@ export function RecoveryTab({ vitals, onVitalsChange }: RecoveryTabProps) {
   const trainingSliders = [
     {
       key: "trainingIntensity" as const,
-      label: "Planned Intensity",
+      label: "Workout Intensity",
       icon: Flame,
       min: 1,
       max: 10,
