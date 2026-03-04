@@ -491,7 +491,7 @@ export function StrokeTab({ vitals, onVitalsChange }: StrokeTabProps) {
                     className="text-sm leading-relaxed text-slate-200 flex items-start gap-3"
                   >
                     <span className="mt-1 flex h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
-                    {insight}
+                    {insight.text}
                   </li>
                 ))}
               </ul>

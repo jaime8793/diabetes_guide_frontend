@@ -131,7 +131,7 @@ export function RecoveryTab({ vitals, onVitalsChange }: RecoveryTabProps) {
     status: string;
     injury_risk?: string;
     injury_probability?: number;
-    actionable_insights?: string[];
+    actionable_insights?: any[];
   } | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
@@ -481,7 +481,7 @@ export function RecoveryTab({ vitals, onVitalsChange }: RecoveryTabProps) {
                     className="text-sm leading-relaxed text-slate-200 flex items-start gap-3"
                   >
                     <span className="mt-1 flex h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
-                    {insight}
+                    {insight.text}
                   </li>
                 ))}
               </ul>

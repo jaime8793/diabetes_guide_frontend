@@ -572,7 +572,10 @@ export default function Page() {
             </TabsContent>
 
             <TabsContent value="master" className="mt-0 outline-none">
-              <MasterTab vitals={vitals} />
+              <MasterTab
+                vitals={vitals}
+                onVitalsChange={setVitals} // <-- Fixed!
+              />
             </TabsContent>
           </Tabs>
         </div>

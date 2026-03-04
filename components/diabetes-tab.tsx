@@ -133,7 +133,7 @@ export function DiabetesTab({ vitals, onVitalsChange }: MetabolicTabProps) {
     status: string;
     predicted_category?: string;
     vitalsguard_score?: number;
-    actionable_insights?: string[];
+    actionable_insights?: any[];
   } | null>(null);
 
   const [error, setError] = useState<string | null>(null);
@@ -444,7 +444,7 @@ export function DiabetesTab({ vitals, onVitalsChange }: MetabolicTabProps) {
                     className="text-sm leading-relaxed text-slate-200 flex items-start gap-3"
                   >
                     <span className="mt-1 flex h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
-                    {insight}
+                    {insight.text}
                   </li>
                 ))}
               </ul>
