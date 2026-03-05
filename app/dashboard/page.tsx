@@ -418,7 +418,7 @@ const MASTER_SCENARIOS = [
 ];
 
 export default function Page() {
-  const [activeTab, setActiveTab] = useState("diabetes");
+  const [activeTab, setActiveTab] = useState("recovery");
 
   // Determine which scenario list to show based on the active tab
   let activeScenarios = METABOLIC_SCENARIOS;
